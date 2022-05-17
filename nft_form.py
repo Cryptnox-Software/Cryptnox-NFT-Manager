@@ -250,9 +250,9 @@ class Panel(wx.Panel):
         contract_address = split[-2]
         token_id = split[-1]
         response = requests.get(url)
-        # soup = BeautifulSoup(response.text)
-        with open('scrape_me.html') as fp:
-            soup = BeautifulSoup(fp, 'html.parser')
+        soup = BeautifulSoup(response.text)
+        # with open('scrape_me.html') as fp:
+        #     soup = BeautifulSoup(fp, 'html.parser')
         divs = soup.find_all("div",{'class':'Blockreact__Block-sc-1xf18x6-0 elqhCm'})
         spans = divs[1].find_all("span")
         endpoint = spans[3].text
