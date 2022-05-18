@@ -12,7 +12,7 @@ class Panel(wx.Panel):
 
     def __init__(self,parent,id):
         super(Panel,self).__init__(parent,id)
-        columns = ['Name','Mail','PIN','PUK','Chain ID','Contract address','NFT ID','Metadata']
+        columns = ['Field 1','Field 2','PIN','PUK','Chain ID','Contract address','Token ID','Metadata']
         self.SetBackgroundColour('black')
         self.SetForegroundColour('white')
         self.ABI_modes = ['Automatic','ERC-721 Openzeppelin','ERC-1155 Openzeppelin','Manual']
@@ -24,16 +24,16 @@ class Panel(wx.Panel):
         self.endpoint_urls = {
             'Polygon':'https://polygon-rpc.com',
             'Ethereum':'https://cloudflare-eth.com',
-            'gnosis':'https://rpc.gnosischain.com',
-            'optimism':'https://mainnet.optimism.io',
-            'arbitrum':'https://arb1.arbitrum.io/rpc'
+            'Gnosis':'https://rpc.gnosischain.com',
+            'Optimism':'https://mainnet.optimism.io',
+            'Arbitrum':'https://arb1.arbitrum.io/rpc'
             }
-        self.chain_ids = {
-            'Polygon':'137',
-            'Ethereum':'1',
-            'gnosis':'100',
-            'optimism':'10',
-            'arbitrum':'42161'
+        self.chains = {
+            'Polygon':{'name':'Polygon Mainnet','id':'137'},
+            'Ethereum':{'name':'Ethereum Mainnet','id':'1'},
+            'Gnosis':{'name':'Gnosis Chain','id':'100'},
+            'Optimism':{'name':'Optimism','id':'10'},
+            'Arbitrum':{'name':'Arbitrum One','id':'42161'}
         }
         self.abi_urls = {
             'Polygon':'https://api.polygonscan.com/api?module=contract&action=getabi',
@@ -47,7 +47,7 @@ class Panel(wx.Panel):
         #Cryptnox logo on top
         path = Path(__file__).parent.joinpath("cryptnox_transparent.png").absolute()
         img = wx.Image(str(path),wx.BITMAP_TYPE_PNG)
-        img_size = (350,350)
+        img_size = (250,250)
         img = img.Scale(int(img_size[0]),int(img_size[1]),wx.IMAGE_QUALITY_HIGH)
         img = img.ConvertToBitmap()
         image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
@@ -55,7 +55,7 @@ class Panel(wx.Panel):
         row_sizer.Add(image,1,wx.ALL)
         col_sizer.Add(row_sizer,1,wx.EXPAND)
 
-        for x in range(0,2):
+        for x in range(0,4):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
             text = wx.StaticText(self,label=columns[x])
             text.SetFont(font)
@@ -81,8 +81,7 @@ class Panel(wx.Panel):
         col_sizer.Add(row_sizer,1,wx.EXPAND)
         self.Bind(wx.EVT_RADIOBUTTON, self.on_radio_choice)
 
-        
-
+    
         #File picker field
         self.file_picker_sizer = wx.BoxSizer(wx.HORIZONTAL)
         text = wx.StaticText(self,label='File')
@@ -111,7 +110,7 @@ class Panel(wx.Panel):
         col_sizer.Add(self.url_input_sizer,1,wx.EXPAND)
 
         #NFT fields
-        for x in range(2,len(columns)):
+        for x in range(4,len(columns)):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
             text = wx.StaticText(self,label=columns[x])
             text.SetFont(font)
@@ -179,6 +178,9 @@ class Panel(wx.Panel):
             field.SetEditable(False)
             field.SetValue('<Please input URL above>')
             field.Disable()
+
+        self.Parent.FindWindowById(3).SetValue('000000000')
+        self.Parent.FindWindowById(4).SetValue('000000000000')
         
 
     def on_radio_choice(self,event):
@@ -221,6 +223,8 @@ class Panel(wx.Panel):
             self.manual_ABI.SetEditable(True)
             self.manual_ABI.Enable()
             self.manual_ABI.SetValue('')
+        self.Parent.FindWindowById(3).SetValue('000000000')
+        self.Parent.FindWindowById(4).SetValue('000000000000')
         self.Layout()
 
     def ABI_chosen(self,event: wx.EVT_LISTBOX):
@@ -285,7 +289,7 @@ class Panel(wx.Panel):
             print(f'Exception parsing url: {e}')
             wx.MessageBox(f"Invalid URL, please try again.\n\n", "Error" ,wx.OK | wx.ICON_WARNING)
             return
-        self.Parent.FindWindowById(5).SetValue(self.chain_ids[endpoint])
+        self.Parent.FindWindowById(5).SetValue(self.chains[endpoint]['id'])
         self.Parent.FindWindowById(6).SetValue(contract_address)
         self.Parent.FindWindowById(7).SetValue(token_id)
         self.endpoint_choice.SetStringSelection(endpoint)
@@ -301,6 +305,8 @@ class Panel(wx.Panel):
             self.Parent.FindWindowById(8).SetValue('')
             self.Parent.FindWindowById(8).Enable()
             self.Parent.FindWindowById(8).SetEditable(True)
+            self.manual_ABI.SetEditable(True)
+            self.manual_ABI.Enable()
             return
         # with open('Goo.html') as fp:
         #     soup = BeautifulSoup(fp, 'html.parser')
@@ -357,9 +363,9 @@ class Panel(wx.Panel):
             value = field.GetValue()
             data[l[x]]=value
         if data['PIN'] == '':
-            data['PIN'] = "0"*card.PUK_LENGTH
+            data['PIN'] = '000000000'
         if data['PUK'] == '':
-            data['PUK'] = '000000000'
+            data['PUK'] = '000000000000'
         for x in range(5,9):
             field = self.Parent.FindWindowById(x)
             value = field.GetValue()
