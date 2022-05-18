@@ -6,44 +6,65 @@ import wx
 import cryptnoxpy
 import gzip
 from bs4 import BeautifulSoup
+from pathlib import Path
 
 class Panel(wx.Panel):
 
     def __init__(self,parent,id):
         super(Panel,self).__init__(parent,id)
-        columns = ['Name','Email','PIN','PUK','Chain ID','Contract address','NFT ID','Metadata']
+        columns = ['Name','Mail','PIN','PUK','Chain ID','Contract address','NFT ID','Metadata']
         self.SetBackgroundColour('black')
         self.SetForegroundColour('white')
-        self.ABI_modes = ['Automatic','ERC721 Openzeppelin','ERC1155 Openzeppelin','Manual']
+        self.ABI_modes = ['Automatic','ERC-721 Openzeppelin','ERC-1155 Openzeppelin','Manual']
         self.endpoints = ['Polygon','Ethereum']
         self.api_keys = {
             'Polygon':'QQDEW4R8YBKBD1PZ3QCGHY8MKGP79MIR4M',
-            'ethereum':'754G6AI3GKUYRHG7M493AR4Y2TCZZ8YAWY'
+            'Ethereum':'754G6AI3GKUYRHG7M493AR4Y2TCZZ8YAWY'
             }
         self.endpoint_urls = {
             'Polygon':'https://polygon-rpc.com',
-            'ethereum':'https://cloudflare-eth.com',
+            'Ethereum':'https://cloudflare-eth.com',
             'gnosis':'https://rpc.gnosischain.com',
             'optimism':'https://mainnet.optimism.io',
             'arbitrum':'https://arb1.arbitrum.io/rpc'
             }
         self.chain_ids = {
             'Polygon':'137',
-            'ethereum':'1',
+            'Ethereum':'1',
             'gnosis':'100',
             'optimism':'10',
             'arbitrum':'42161'
         }
         self.abi_urls = {
             'Polygon':'https://api.polygonscan.com/api?module=contract&action=getabi',
-            'Ethereum':''
+            'Ethereum':'https://api.etherscan.io/api?module=contract&action=getabi'
         }
 
         font = wx.Font(13, wx.DECORATIVE,wx.NORMAL, wx.NORMAL)
 
         col_sizer = wx.BoxSizer(wx.VERTICAL)
-        col_sizer.Add((0, 0), 1, wx.EXPAND)
 
+        #Cryptnox logo on top
+        path = Path(__file__).parent.joinpath("cryptnox_transparent.png").absolute()
+        img = wx.Image(str(path),wx.BITMAP_TYPE_PNG)
+        img_size = (350,350)
+        img = img.Scale(int(img_size[0]),int(img_size[1]),wx.IMAGE_QUALITY_HIGH)
+        img = img.ConvertToBitmap()
+        image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
+        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        row_sizer.Add(image,1,wx.ALL)
+        col_sizer.Add(row_sizer,1,wx.EXPAND)
+
+        for x in range(0,2):
+            row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            text = wx.StaticText(self,label=columns[x])
+            text.SetFont(font)
+            row_sizer.Add(text,1,wx.ALL,border=10)
+            field = wx.TextCtrl(self,x+1)            
+            row_sizer.Add(field,1,wx.ALL,border=10)
+            col_sizer.Add(row_sizer,1,wx.EXPAND)
+
+        #Input methods choice
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
         text = wx.StaticText(self,label='Please choose NFT data input method below:')
         text.SetFont(font)
@@ -59,6 +80,8 @@ class Panel(wx.Panel):
         row_sizer.Add(rb3,1,wx.ALL,border=10)
         col_sizer.Add(row_sizer,1,wx.EXPAND)
         self.Bind(wx.EVT_RADIOBUTTON, self.on_radio_choice)
+
+        
 
         #File picker field
         self.file_picker_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -88,12 +111,12 @@ class Panel(wx.Panel):
         col_sizer.Add(self.url_input_sizer,1,wx.EXPAND)
 
         #NFT fields
-        for each in columns:
+        for x in range(2,len(columns)):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            text = wx.StaticText(self,label=each)
+            text = wx.StaticText(self,label=columns[x])
             text.SetFont(font)
             row_sizer.Add(text,1,wx.ALL,border=10)
-            field = wx.TextCtrl(self,columns.index(each)+1)            
+            field = wx.TextCtrl(self,x+1)            
             row_sizer.Add(field,1,wx.ALL,border=10)
             col_sizer.Add(row_sizer,1,wx.EXPAND)
         
@@ -155,7 +178,8 @@ class Panel(wx.Panel):
             field = self.Parent.FindWindowById(x)
             field.SetEditable(False)
             field.SetValue('<Please input URL above>')
-        self.manual_ABI.SetEditable(False)
+            field.Disable()
+        
 
     def on_radio_choice(self,event):
         choice = event.GetEventObject().GetLabel()
@@ -169,6 +193,7 @@ class Panel(wx.Panel):
                 field = self.Parent.FindWindowById(x)
                 field.SetEditable(False)
                 field.SetValue('<Please input URL above>')
+                field.Disable()
             self.manual_ABI.SetEditable(False)
         elif 'File' in choice:
             self.url_input_sizer.Hide(0)
@@ -180,6 +205,7 @@ class Panel(wx.Panel):
                 field = self.Parent.FindWindowById(x)
                 field.SetEditable(False)
                 field.SetValue('<Please select file above>')
+                field.Disable()
             self.manual_ABI.SetEditable(False)
         else:
             self.url_input_sizer.Hide(0)
@@ -191,7 +217,10 @@ class Panel(wx.Panel):
                 field = self.Parent.FindWindowById(x)
                 field.SetEditable(True)
                 field.SetValue('')
+                field.Enable()
             self.manual_ABI.SetEditable(True)
+            self.manual_ABI.Enable()
+            self.manual_ABI.SetValue('')
         self.Layout()
 
     def ABI_chosen(self,event: wx.EVT_LISTBOX):
@@ -223,7 +252,7 @@ class Panel(wx.Panel):
                 if 'polygon' in l[-2]:
                     self.endpoint_choice.SetStringSelection('Polygon')
                 elif 'ethereum' in l[-2]:
-                    self.endpoint_choice.SetStringSelection('ethereum')
+                    self.endpoint_choice.SetStringSelection('Ethereum')
                 else:
                     print(f'Unrecognized endpoint: {l[-2]}')
             except Exception as e:
@@ -241,29 +270,52 @@ class Panel(wx.Panel):
             self.Layout()
             
             self.manual_ABI.SetValue(l[-1])
+            self.manual_ABI.Disable()
         else:
             wx.MessageBox("Please select a valid txt file with NFT fields.", "Info" ,wx.OK | wx.ICON_WARNING)
 
     def get_fields_from_url(self,event):
-        url = self.url_field.GetValue()
-        split = url.split('/')
-        contract_address = split[-2]
-        token_id = split[-1]
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text)
-        # with open('scrape_me.html') as fp:
+        try:
+            url = self.url_field.GetValue()
+            split = url.split('/')
+            contract_address = split[-2]
+            token_id = split[-1]
+            endpoint = 'Polygon' if 'matic' in url else 'Ethereum'
+        except Exception as e:
+            print(f'Exception parsing url: {e}')
+            wx.MessageBox(f"Invalid URL, please try again.\n\n", "Error" ,wx.OK | wx.ICON_WARNING)
+            return
+        self.Parent.FindWindowById(5).SetValue(self.chain_ids[endpoint])
+        self.Parent.FindWindowById(6).SetValue(contract_address)
+        self.Parent.FindWindowById(7).SetValue(token_id)
+        self.endpoint_choice.SetStringSelection(endpoint)
+        try:
+            response = requests.get(url)
+            print(response.status_code)
+            if response.status_code >= 400:
+                raise
+            soup = BeautifulSoup(response.text)
+        except Exception as e:
+            print(f'Exception fetching url: {e}')
+            wx.MessageBox(f"Network error in fetching url, please continue input manually or try again.\n\n", "Error" ,wx.OK | wx.ICON_WARNING)
+            self.Parent.FindWindowById(8).SetValue('')
+            self.Parent.FindWindowById(8).Enable()
+            self.Parent.FindWindowById(8).SetEditable(True)
+            return
+        # with open('Goo.html') as fp:
         #     soup = BeautifulSoup(fp, 'html.parser')
         divs = soup.find_all("div",{'class':'Blockreact__Block-sc-1xf18x6-0 elqhCm'})
         spans = divs[1].find_all("span")
-        endpoint = spans[3].text
         metadata_url = spans[4].find_all("a")[0]['href']
-        metadata = requests.get(metadata_url).json()
+        try:
+            metadata = requests.get(metadata_url).json()
+            self.Parent.FindWindowById(8).SetValue(str(metadata))
+        except Exception as e:
+            print(f'Exception fetching metadata: {e}')
+            wx.MessageBox(f"Network error in fetching Metadata, please input manually or try again.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            self.Parent.FindWindowById(8).SetValue('')
+            self.Parent.FindWindowById(8).SetEditable(True)
         ABI = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
-        print(f'Got ABI: {len(ABI)}')
-        l = [0,0,0,0,0,self.chain_ids[endpoint],contract_address,token_id,str(metadata)]
-        for x in range(5,9):
-            field = self.Parent.FindWindowById(x)
-            field.SetValue(l[x])
         self.ABI_chooser.SetStringSelection('Manual')
         self.manual_abi_sizer.Show(0)
         self.manual_abi_sizer.Show(1)
@@ -274,12 +326,28 @@ class Panel(wx.Panel):
     def fetch_ABI(self,url,contract_address,api_key):
         try:
             resp = requests.get(url+f'&address={contract_address}'+f'&apikey={api_key}').json()['result']
+            self.manual_ABI.SetEditable(False)
+            self.manual_ABI.Disable()
+            if 'not verified' in resp:
+                wx.MessageBox(f"Contract source code is not verified.\nPlease input ABI manually or try again.\n", "Error" ,wx.OK | wx.ICON_WARNING)
+                self.manual_ABI.SetEditable(True)
+                self.manual_ABI.Enable()
+                resp = ''
         except Exception as e:
             print(f'Exception fetching ABI: {e}')
-            resp = e
+            wx.MessageBox(f"Network error in fetching ABI, please input manually or try again.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            self.manual_ABI.SetEditable(True)
+            resp = ''
         return resp
 
     def execute_load(self,event):
+
+        try:
+            card = self.get_card()
+        except Exception as e:
+            print(f'Exception getting card object: {e}')
+            wx.MessageBox(f"Card or reader not found, please ensure device is connected.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            return
         l = ['','Name','Mail','PIN','PUK']
         data = {}
         slot_data = []
@@ -288,6 +356,10 @@ class Panel(wx.Panel):
             field = self.Parent.FindWindowById(x)
             value = field.GetValue()
             data[l[x]]=value
+        if data['PIN'] == '':
+            data['PIN'] = "0"*card.PUK_LENGTH
+        if data['PUK'] == '':
+            data['PUK'] = '000000000'
         for x in range(5,9):
             field = self.Parent.FindWindowById(x)
             value = field.GetValue()
@@ -316,22 +388,31 @@ class Panel(wx.Panel):
         print(slots[0])
         print(type(slots[0]))
         print(slots[3])
-        connection = cryptnoxpy.Connection()
-        card = cryptnoxpy.factory.get_card(connection)
         try:
             card.init(data['Name'],data['Mail'],data['PIN'],data['PUK'],nfc_sign=self.NFC_choice.GetValue())
         except Exception as e:
             print(f'Exception in init: {e}')
-            wx.MessageBox("Card cannot be initialized, please reset using Cryptnoxpro.", "Info" ,wx.OK | wx.ICON_WARNING)
+            wx.MessageBox(f"Card cannot be initialized, please reset using Cryptnoxpro.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
             return
-        connection = cryptnoxpy.Connection()
-        card = cryptnoxpy.factory.get_card(connection)
-        for index,value in enumerate(slots):
-            if value:
-                card.user_data[index] = gzip.compress(value.encode("UTF-8"))
+        try:
+            card = self.get_card()
+        except Exception as e:
+            wx.MessageBox(f"Card or reader not found, please ensure device is connected.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            return
+        try:
+            for index,value in enumerate(slots):
+                if value:
+                    card.user_data[index] = gzip.compress(value.encode("UTF-8"))
+        except Exception as e:
+            print(f'Error writing data to card: {e}')
+            wx.MessageBox(f"Error writing data to card.\n\n {e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            return
         print('Data written')
         wx.MessageBox("Card has been loaded with the NFT, it can now be viewed with Cryptnox Gallery.", "Info" ,wx.OK | wx.ICON_INFORMATION)
         wx.CallAfter(self.Parent.Close)
+
+    def get_card(self):
+        return cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
         
 
 
@@ -340,7 +421,7 @@ class NFT_Form_App(wx.App):
     def __init__(self):
         super(NFT_Form_App, self).__init__()
         self.locale = wx.Locale(wx.LANGUAGE_ENGLISH)
-        self.frame = wx.Frame(None, -1, "NFT Form",pos=((wx.DisplaySize()[0]/2)-250,(wx.DisplaySize()[1]/2)-500),size=(500,1000))
+        self.frame = wx.Frame(None, -1, "NFT CARD MANAGER",pos=((wx.DisplaySize()[0]/2)-250,(wx.DisplaySize()[1]/2)-600),size=(500,1200))
         self.panel = Panel(self.frame, -1)
         self.frame.Show(1)
         self.MainLoop()
