@@ -1,14 +1,14 @@
-from lib2to3.pgen2 import token
-from os import stat
-from random import choices
-from tkinter import E
-from urllib import response
 import requests
 import wx
 import cryptnoxpy
 import gzip
 from bs4 import BeautifulSoup
 from pathlib import Path
+from nft_display import DownloadThread
+import filetype
+import tempfile
+from wx import media
+from wx.lib.pubsub import pub
 
 class Panel(wx.Panel):
 
@@ -44,7 +44,12 @@ class Panel(wx.Panel):
 
         font = wx.Font(13, wx.DECORATIVE,wx.NORMAL, wx.NORMAL)
 
+        main_sizer = wx.BoxSizer(wx.HORIZONTAL)
         col_sizer = wx.BoxSizer(wx.VERTICAL)
+        main_sizer.Add(col_sizer,1,wx.ALIGN_LEFT)
+        self.col_sizer_2 = wx.BoxSizer(wx.VERTICAL)
+        self.col_sizer_2.AddSpacer(500)
+        main_sizer.Add(self.col_sizer_2,1,wx.RESERVE_SPACE_EVEN_IF_HIDDEN)
 
         #Cryptnox logo on top
         path = Path(__file__).parent.joinpath("cryptnox_transparent.png").absolute()
@@ -184,9 +189,8 @@ class Panel(wx.Panel):
 
         col_sizer.Add(row_sizer,1,wx.EXPAND)
 
-                
 
-        self.SetSizerAndFit(col_sizer)
+        self.SetSizerAndFit(main_sizer)
 
         for x in range(5,9):
             field = self.Parent.FindWindowById(x)
@@ -197,6 +201,10 @@ class Panel(wx.Panel):
         self.manual_ABI.Disable()
         self.Parent.FindWindowById(3).SetValue('000000000')
         self.Parent.FindWindowById(4).SetValue('000000000000')
+
+        pub.subscribe(self.downloaded, "downloaded")
+
+        self.Parent.FindWindowById(8).Bind(wx.EVT_TEXT,self.metedata_changed)
         
 
     def on_radio_choice(self,event):
@@ -424,7 +432,7 @@ class Panel(wx.Panel):
             card.init(data['Name'],data['Mail'],data['PIN'],data['PUK'],nfc_sign=self.NFC_choice.GetValue())
         except Exception as e:
             print(f'Exception in init: {e}')
-            wx.MessageBox(f"Card cannot be initialized, please reset using Cryptnoxpro.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            wx.MessageBox(f"Card cannot be initialized, please reset the card.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
             return
         try:
             card = self.get_card()
@@ -479,12 +487,66 @@ class Panel(wx.Panel):
         dlg.Destroy()
         return result
 
+    def metedata_changed(self,event):
+        v = self.Parent.FindWindowById(8).GetValue()
+        try:
+            metadata_json = eval(v)
+            image_url = metadata_json['image_url'] if 'image_url' in metadata_json.keys() else metadata_json['image']
+            split_url = image_url.split('/')
+            url = f"https://cf-ipfs.com/ipfs/{split_url[-2]}/{split_url[-1]}"
+            self.fetch_nft(url)
+        except Exception as e:  
+            print('Not downloading NFT:{e}')
+            pass
+
+    def fetch_nft(self,url):
+        print(f'Fetching NFT: {url}')
+        header = requests.head(url)
+        file_size = int(int(header.headers["content-length"]) / 1024)
+        DownloadThread(self,url,file_size=file_size)
+
+    def downloaded(self, data):
+        try:
+            print(f'Downloaded')
+            file_type = filetype.guess(data).mime
+            if not file_type.startswith('image'):
+                wx.MessageBox(f"File format not recognized, preview unavailable", "Error" ,wx.OK | wx.ICON_INFORMATION)
+                return
+            if file_type.endswith('gif'):
+                self.show_nft('gif',data)
+            else:
+                self.show_nft('image',data)
+        except Exception as e:
+            print(f'Exception in downloaded: {e}')
+
+    def show_nft(self,nft_type,data):
+        self.Parent.SetSize(1200,1200)
+        if nft_type == 'gif':
+            ft = tempfile.NamedTemporaryFile(delete=False, suffix=".gif")
+            ft.write(data)
+            ft.flush()
+            ft.close()
+            self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,500), size=(500,500))
+            self.anim.Bind(media.EVT_MEDIA_LOADED, self.on_media_loaded)
+            self.anim.Bind(media.EVT_MEDIA_FINISHED,self.on_media_finished)
+            self.anim.Load(ft.name)
+            self.col_sizer_2.Add(self.anim, 0, wx.CENTER, 0)
+            self.Layout()
+        else:
+            print('Not gif')
+            
+    def on_media_loaded(self, event):
+        self.anim.Play()
+
+    def on_media_finished(self,event: media.EVT_MEDIA_FINISHED):
+        self.anim.Play()
+
 class NFT_Form_App(wx.App):
 
     def __init__(self):
         super(NFT_Form_App, self).__init__()
         self.locale = wx.Locale(wx.LANGUAGE_ENGLISH)
-        self.frame = wx.Frame(None, -1, "NFT CARD MANAGER",pos=((wx.DisplaySize()[0]/2)-250,(wx.DisplaySize()[1]/2)-600),size=(500,1200))
+        self.frame = wx.Frame(None, -1, "NFT CARD MANAGER",pos=((wx.DisplaySize()[0]/2)-325,(wx.DisplaySize()[1]/2)-600),size=(650,1200))
         self.panel = Panel(self.frame, -1)
         self.frame.Show(1)
         self.MainLoop()
