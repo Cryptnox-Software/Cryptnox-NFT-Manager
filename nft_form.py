@@ -143,6 +143,7 @@ class Panel(wx.Panel):
         text.SetFont(font)
         row_sizer.Add(text,1,wx.ALL,border=10)
         self.ABI_chooser = wx.ListBox(self,choices=self.ABI_modes)
+        self.ABI_chooser.SetStringSelection(self.ABI_modes[0])
         self.ABI_chooser.Bind(wx.EVT_LISTBOX,self.ABI_chosen)
         row_sizer.Add(self.ABI_chooser,1,wx.ALL,border=10)
         col_sizer.Add(row_sizer,1,wx.EXPAND)
@@ -222,7 +223,7 @@ class Panel(wx.Panel):
                 field.Disable()
             self.manual_ABI.SetEditable(False)
             self.endpoint_choice.Disable()
-            self.endpoint_choice.Clear()
+            self.endpoint_choice.SetStringSelection('')
         elif 'File' in choice:
             self.url_input_sizer.Hide(0)
             self.url_input_sizer.Hide(1)
@@ -236,7 +237,7 @@ class Panel(wx.Panel):
                 field.Disable()
             self.manual_ABI.SetEditable(False)
             self.endpoint_choice.Disable()
-            self.endpoint_choice.Clear()
+            self.endpoint_choice.SetStringSelection('')
         else:
             self.url_input_sizer.Hide(0)
             self.url_input_sizer.Hide(1)
@@ -413,7 +414,15 @@ class Panel(wx.Panel):
         slots.append(d)
         slots.append('')
         d = {}
-        d['ABI'] = slot_data[4]
+        if slot_data[4] == '':
+            endpoint = self.endpoint_choice.GetStringSelection()
+            contract_address = slot_data[1]
+            ABI_resp = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
+            if ABI_resp == '':
+                return
+            d['ABI'] = ABI_resp
+        else:
+            d['ABI'] = slot_data[4]
         slots.append(d)
         slots.append(slot_data[3])
         slots[0] = str(slots[0])
@@ -462,11 +471,14 @@ class Panel(wx.Panel):
             if v == '' or 'Please' in v:
                 l.append(self.columns[x])
         if self.manual_ABI.GetValue() == '':
-            l.append('ABI')
+            if self.ABI_chooser.GetStringSelection() == 'Manual':
+                l.append('ABI')
         if 5 > len(self.Parent.FindWindowById(3).GetValue()) < 9:
             wx.MessageBox("PIN must be more than 5 and less than 9 numeric values", "Error" ,wx.OK | wx.ICON_INFORMATION)
         if len(self.Parent.FindWindowById(4).GetValue()) <= 11:
             wx.MessageBox("PUK must be 12 alphanumeric value", "Error" ,wx.OK | wx.ICON_INFORMATION)
+        if self.endpoint_choice.GetStringSelection() == '':
+            l.append('Endpoint')
         return l
 
     def reset_card(self,event):
@@ -496,11 +508,12 @@ class Panel(wx.Panel):
             url = f"https://cf-ipfs.com/ipfs/{split_url[-2]}/{split_url[-1]}"
             self.fetch_nft(url)
         except Exception as e:  
-            print('Not downloading NFT:{e}')
+            print(f'Not downloading NFT:{e}')
             pass
 
     def fetch_nft(self,url):
         print(f'Fetching NFT: {url}')
+        self.col_sizer_2.Clear(1)
         header = requests.head(url)
         file_size = int(int(header.headers["content-length"]) / 1024)
         DownloadThread(self,url,file_size=file_size)
