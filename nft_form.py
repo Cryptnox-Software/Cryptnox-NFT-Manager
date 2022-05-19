@@ -467,6 +467,7 @@ class Panel(wx.Panel):
             puk = self.ask(message='Please input your PUK to reset:')
             if puk:
                 card.reset(puk)
+                wx.MessageBox(f"Card has been reset.", "Info" ,wx.OK | wx.ICON_INFORMATION)
         except Exception as e:
             wx.MessageBox(f"Error resetting card:\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_INFORMATION)
             return
