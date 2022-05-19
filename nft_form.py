@@ -119,9 +119,14 @@ class Panel(wx.Panel):
         #NFT fields
         for x in range(4,len(self.columns)):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            text = wx.StaticText(self,label=self.columns[x])
-            text.SetFont(font)
-            row_sizer.Add(text,1,wx.ALL,border=10)
+            if x == 7:
+                self.metedata_label = wx.StaticText(self,label=self.columns[x])
+                self.metedata_label.SetFont(font)
+                row_sizer.Add(self.metedata_label,1,wx.ALL,border=10)
+            else:
+                text = wx.StaticText(self,label=self.columns[x])
+                text.SetFont(font)
+                row_sizer.Add(text,1,wx.ALL,border=10)
             field = wx.TextCtrl(self,x+1)            
             row_sizer.Add(field,1,wx.ALL,border=10)
             col_sizer.Add(row_sizer,1,wx.EXPAND)
@@ -513,13 +518,14 @@ class Panel(wx.Panel):
 
     def fetch_nft(self,url):
         print(f'Fetching NFT: {url}')
-        header = requests.head(url)
-        file_size = int(int(header.headers["content-length"]) / 1024)
-        DownloadThread(self,url,file_size=file_size)
+        self.metedata_label.SetLabel('Metadata (Loading preview...)')
+        DownloadThread(self,url)
+        wx.MessageBox(f"NFT preview will be available shortly.", "Error" ,wx.OK | wx.ICON_INFORMATION)
 
     def downloaded(self, data):
         try:
             print(f'Downloaded')
+            self.metedata_label.SetLabel('Metadata')
             file_type = filetype.guess(data).mime
             if not file_type.startswith('image'):
                 wx.MessageBox(f"File format not recognized, preview unavailable", "Error" ,wx.OK | wx.ICON_INFORMATION)
