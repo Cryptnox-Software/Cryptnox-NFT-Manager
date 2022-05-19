@@ -513,7 +513,6 @@ class Panel(wx.Panel):
 
     def fetch_nft(self,url):
         print(f'Fetching NFT: {url}')
-        self.col_sizer_2.Clear(1)
         header = requests.head(url)
         file_size = int(int(header.headers["content-length"]) / 1024)
         DownloadThread(self,url,file_size=file_size)
