@@ -1,6 +1,8 @@
 from lib2to3.pgen2 import token
+from os import stat
 from random import choices
 from tkinter import E
+from urllib import response
 import requests
 import wx
 import cryptnoxpy
@@ -12,7 +14,7 @@ class Panel(wx.Panel):
 
     def __init__(self,parent,id):
         super(Panel,self).__init__(parent,id)
-        columns = ['Field 1','Field 2','PIN','PUK','Chain ID','Contract address','Token ID','Metadata']
+        self.columns = ['Field 1','Field 2','PIN','PUK','Chain Name and ID','Contract address','Token ID','Metadata']
         self.SetBackgroundColour('black')
         self.SetForegroundColour('white')
         self.ABI_modes = ['Automatic','ERC-721 Openzeppelin','ERC-1155 Openzeppelin','Manual']
@@ -57,7 +59,7 @@ class Panel(wx.Panel):
 
         for x in range(0,4):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            text = wx.StaticText(self,label=columns[x])
+            text = wx.StaticText(self,label=self.columns[x])
             text.SetFont(font)
             row_sizer.Add(text,1,wx.ALL,border=10)
             field = wx.TextCtrl(self,x+1)            
@@ -110,9 +112,9 @@ class Panel(wx.Panel):
         col_sizer.Add(self.url_input_sizer,1,wx.EXPAND)
 
         #NFT fields
-        for x in range(4,len(columns)):
+        for x in range(4,len(self.columns)):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            text = wx.StaticText(self,label=columns[x])
+            text = wx.StaticText(self,label=self.columns[x])
             text.SetFont(font)
             row_sizer.Add(text,1,wx.ALL,border=10)
             field = wx.TextCtrl(self,x+1)            
@@ -162,14 +164,27 @@ class Panel(wx.Panel):
 
         
 
-        #Execute load button
+        #Reset card and Execute load buttons
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.execute_btn = wx.Button(self,-1,size=(0,40))
+        self.reset_btn = wx.Button(self,-1,size=(0,40))
+        self.reset_btn.SetFont(font)
+        self.reset_btn.SetLabel('Reset card')
+
+        self.reset_btn.Bind(wx.EVT_BUTTON,self.reset_card)
+
+        row_sizer.Add(self.reset_btn,1,wx.ALL,border=30)
+
+        self.execute_btn = wx.Button(self,-1,size=(250,40))
         self.execute_btn.SetFont(font)
         self.execute_btn.SetLabel('Execute load')
-        row_sizer.Add(self.execute_btn,1,wx.ALL,border=30)
-        col_sizer.Add(row_sizer,1,wx.EXPAND)
+
         self.execute_btn.Bind(wx.EVT_BUTTON,self.execute_load)
+
+        row_sizer.Add(self.execute_btn,1,wx.ALL,border=30)
+
+        col_sizer.Add(row_sizer,1,wx.EXPAND)
+
+                
 
         self.SetSizerAndFit(col_sizer)
 
@@ -178,7 +193,8 @@ class Panel(wx.Panel):
             field.SetEditable(False)
             field.SetValue('<Please input URL above>')
             field.Disable()
-
+        self.endpoint_choice.Disable()
+        self.manual_ABI.Disable()
         self.Parent.FindWindowById(3).SetValue('000000000')
         self.Parent.FindWindowById(4).SetValue('000000000000')
         
@@ -197,6 +213,8 @@ class Panel(wx.Panel):
                 field.SetValue('<Please input URL above>')
                 field.Disable()
             self.manual_ABI.SetEditable(False)
+            self.endpoint_choice.Disable()
+            self.endpoint_choice.Clear()
         elif 'File' in choice:
             self.url_input_sizer.Hide(0)
             self.url_input_sizer.Hide(1)
@@ -209,6 +227,8 @@ class Panel(wx.Panel):
                 field.SetValue('<Please select file above>')
                 field.Disable()
             self.manual_ABI.SetEditable(False)
+            self.endpoint_choice.Disable()
+            self.endpoint_choice.Clear()
         else:
             self.url_input_sizer.Hide(0)
             self.url_input_sizer.Hide(1)
@@ -223,6 +243,7 @@ class Panel(wx.Panel):
             self.manual_ABI.SetEditable(True)
             self.manual_ABI.Enable()
             self.manual_ABI.SetValue('')
+            self.endpoint_choice.Enable()
         self.Parent.FindWindowById(3).SetValue('000000000')
         self.Parent.FindWindowById(4).SetValue('000000000000')
         self.Layout()
@@ -289,13 +310,20 @@ class Panel(wx.Panel):
             print(f'Exception parsing url: {e}')
             wx.MessageBox(f"Invalid URL, please try again.\n\n", "Error" ,wx.OK | wx.ICON_WARNING)
             return
-        self.Parent.FindWindowById(5).SetValue(self.chains[endpoint]['id'])
+        self.Parent.FindWindowById(5).SetValue(self.chains[endpoint]['name']+' '+self.chains[endpoint]['id'])
         self.Parent.FindWindowById(6).SetValue(contract_address)
         self.Parent.FindWindowById(7).SetValue(token_id)
         self.endpoint_choice.SetStringSelection(endpoint)
+        self.endpoint_choice.Disable()
+
         try:
+            ABI = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
+            self.ABI_chooser.SetStringSelection('Manual')
+            self.manual_abi_sizer.Show(0)
+            self.manual_abi_sizer.Show(1)
+            self.Layout()
+            self.manual_ABI.SetValue(ABI)
             response = requests.get(url)
-            print(response.status_code)
             if response.status_code >= 400:
                 raise
             soup = BeautifulSoup(response.text)
@@ -304,9 +332,7 @@ class Panel(wx.Panel):
             wx.MessageBox(f"Network error in fetching url, please continue input manually or try again.\n\n", "Error" ,wx.OK | wx.ICON_WARNING)
             self.Parent.FindWindowById(8).SetValue('')
             self.Parent.FindWindowById(8).Enable()
-            self.Parent.FindWindowById(8).SetEditable(True)
-            self.manual_ABI.SetEditable(True)
-            self.manual_ABI.Enable()
+            self.Parent.FindWindowById(8).SetEditable(True)            
             return
         # with open('Goo.html') as fp:
         #     soup = BeautifulSoup(fp, 'html.parser')
@@ -321,33 +347,33 @@ class Panel(wx.Panel):
             wx.MessageBox(f"Network error in fetching Metadata, please input manually or try again.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
             self.Parent.FindWindowById(8).SetValue('')
             self.Parent.FindWindowById(8).SetEditable(True)
-        ABI = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
-        self.ABI_chooser.SetStringSelection('Manual')
-        self.manual_abi_sizer.Show(0)
-        self.manual_abi_sizer.Show(1)
-        self.Layout()
-        self.manual_ABI.SetValue(ABI)
-        self.endpoint_choice.SetStringSelection(endpoint)
 
     def fetch_ABI(self,url,contract_address,api_key):
         try:
-            resp = requests.get(url+f'&address={contract_address}'+f'&apikey={api_key}').json()['result']
+            response = requests.get(url+f'&address={contract_address}'+f'&apikey={api_key}')
+            resp = response.json()['result']
+            print(response.status_code)
+            if response.status_code >= 400 or 'Invalid' in resp or 'verified' in resp:
+                raise Exception('Source not verified or Invalid API key')
             self.manual_ABI.SetEditable(False)
             self.manual_ABI.Disable()
-            if 'not verified' in resp:
-                wx.MessageBox(f"Contract source code is not verified.\nPlease input ABI manually or try again.\n", "Error" ,wx.OK | wx.ICON_WARNING)
-                self.manual_ABI.SetEditable(True)
-                self.manual_ABI.Enable()
-                resp = ''
         except Exception as e:
             print(f'Exception fetching ABI: {e}')
             wx.MessageBox(f"Network error in fetching ABI, please input manually or try again.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
             self.manual_ABI.SetEditable(True)
+            self.manual_ABI.Enable()
             resp = ''
         return resp
 
     def execute_load(self,event):
-
+        unfilled_list = self.validate_fields()
+        if len(unfilled_list) > 0:
+            empty_fields = []
+            message = 'Please fill the following fields:'
+            for each in unfilled_list:
+                message+=(f'\n-{each}')
+            wx.MessageBox(message, "Error" ,wx.OK | wx.ICON_WARNING)
+            return
         try:
             card = self.get_card()
         except Exception as e:
@@ -373,7 +399,7 @@ class Panel(wx.Panel):
         slot_data.append(self.manual_ABI.GetValue())
         d = {}
         d['endpoint'] = self.endpoint_urls[self.endpoint_choice.GetStringSelection()]
-        d['chain_id'] = slot_data[0]
+        d['chain_id'] = self.chains[self.endpoint_choice.GetStringSelection()]['id']
         d['contract_address'] = slot_data[1]
         d['token_id'] = slot_data[2]
         slots.append(d)
@@ -420,7 +446,37 @@ class Panel(wx.Panel):
     def get_card(self):
         return cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
         
+    
+    def validate_fields(self):
+        l = []
+        for x in range(0,8):
+            v = self.Parent.FindWindowById(x+1).GetValue()
+            if v == '' or 'Please' in v:
+                l.append(self.columns[x])
+        if self.manual_ABI.GetValue() == '':
+            l.append('ABI')
+        if 5 > len(self.Parent.FindWindowById(3).GetValue()) < 9:
+            wx.MessageBox("PIN must be more than 5 and less than 9 numeric values", "Error" ,wx.OK | wx.ICON_INFORMATION)
+        if len(self.Parent.FindWindowById(4).GetValue()) <= 11:
+            wx.MessageBox("PUK must be 12 alphanumeric value", "Error" ,wx.OK | wx.ICON_INFORMATION)
+        return l
 
+    def reset_card(self,event):
+        try:
+            card = self.get_card()
+            puk = self.ask(message='Please input your PUK to reset:')
+            if puk:
+                card.reset(puk)
+        except Exception as e:
+            wx.MessageBox(f"Error resetting card:\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_INFORMATION)
+            return
+
+    def ask(parent=None, message=''):
+        dlg = wx.TextEntryDialog(parent, message)
+        dlg.ShowModal()
+        result = dlg.GetValue()
+        dlg.Destroy()
+        return result
 
 class NFT_Form_App(wx.App):
 
