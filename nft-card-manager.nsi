@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "NFT Card Manager"
-!define PRODUCT_VERSION "1.1.0"
+!define PRODUCT_VERSION "1.1.1"
 !define PRODUCT_PUBLISHER "Cryptnox SA"
 !define PRODUCT_WEB_SITE "https://cryptnox.ch"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\NFT Card Manager.exe"
@@ -29,6 +29,7 @@ SetCompressor lzma
 !insertmacro MUI_PAGE_INSTFILES
 ; Finish page
 !define MUI_FINISHPAGE_RUN "$INSTDIR\NFT Card Manager.exe"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.md"
 !insertmacro MUI_PAGE_FINISH
 
 ; Uninstaller pages
@@ -218,6 +219,8 @@ Section "MainSection" SEC01
   File "dist\NFT Card Manager\_socket.pyd"
   File "dist\NFT Card Manager\_ssl.pyd"
   File "dist\NFT Card Manager\_uuid.pyd"
+  SetOverwrite ifnewer
+  File "README.md"
 SectionEnd
 
 Section -AdditionalIcons
@@ -248,6 +251,7 @@ FunctionEnd
 
 Section Uninstall
   Delete "$INSTDIR\uninst.exe"
+  Delete "$INSTDIR\README.md"
   Delete "$INSTDIR\_uuid.pyd"
   Delete "$INSTDIR\_ssl.pyd"
   Delete "$INSTDIR\_socket.pyd"
