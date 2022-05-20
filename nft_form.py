@@ -8,6 +8,7 @@ from nft_display import DownloadThread
 import filetype
 import tempfile
 from wx import media
+import io
 from wx.lib.pubsub import pub
 
 class Panel(wx.Panel):
@@ -19,6 +20,9 @@ class Panel(wx.Panel):
         self.SetForegroundColour('white')
         self.ABI_modes = ['Automatic','ERC-721 Openzeppelin','ERC-1155 Openzeppelin','Manual']
         self.endpoints = ['Polygon','Ethereum']
+        self.metadata_apikeys = {
+            'nftport':'b15abe1b-2545-4e1e-b07c-5da11cec6950'
+        }
         self.api_keys = {
             'Polygon':'QQDEW4R8YBKBD1PZ3QCGHY8MKGP79MIR4M',
             'Ethereum':'754G6AI3GKUYRHG7M493AR4Y2TCZZ8YAWY'
@@ -49,6 +53,9 @@ class Panel(wx.Panel):
         main_sizer.Add(col_sizer,1,wx.ALIGN_LEFT)
         self.col_sizer_2 = wx.BoxSizer(wx.VERTICAL)
         self.col_sizer_2.AddSpacer(500)
+        self.preview_text = wx.StaticText(self,label="")
+        self.preview_text.SetFont(font)
+        self.col_sizer_2.Add(self.preview_text,0,wx.CENTER,0)
         main_sizer.Add(self.col_sizer_2,1,wx.RESERVE_SPACE_EVEN_IF_HIDDEN)
 
         #Cryptnox logo on top
@@ -314,6 +321,7 @@ class Panel(wx.Panel):
             wx.MessageBox("Please select a valid txt file with NFT fields.", "Info" ,wx.OK | wx.ICON_WARNING)
 
     def get_fields_from_url(self,event):
+        self.col_sizer_2.Clear(1)
         try:
             url = self.url_field.GetValue()
             split = url.split('/')
@@ -329,22 +337,42 @@ class Panel(wx.Panel):
         self.Parent.FindWindowById(7).SetValue(token_id)
         self.endpoint_choice.SetStringSelection(endpoint)
         self.endpoint_choice.Disable()
+        self.Parent.FindWindowById(8).SetValue('')
+
+        ABI = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
+        self.ABI_chooser.SetStringSelection('Manual')
+        self.manual_abi_sizer.Show(0)
+        self.manual_abi_sizer.Show(1)
+        self.Layout()
+        self.manual_ABI.SetValue(ABI)
+        metadata = False
+        try:
+            nftport_url = f"https://api.nftport.xyz/v0/nfts/{contract_address}/{token_id}"
+            querystring = {"chain":endpoint.lower(),"refresh_metadata":"false"}
+            headers = {
+                'Content-Type': "application/json",
+                'Authorization': self.metadata_apikeys['nftport']
+            }
+            nftport_response = requests.request("GET",nftport_url,headers=headers,params=querystring)
+            print(nftport_response)
+            metadata = nftport_response.json()['nft']['metadata']
+            self.Parent.FindWindowById(8).SetValue(str(metadata))
+        except Exception as e:
+            print(f'Error fetching metadata: {e}')
+            self.Parent.FindWindowById(8).Enable()
+            self.Parent.FindWindowById(8).SetEditable(True)
 
         try:
-            ABI = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
-            self.ABI_chooser.SetStringSelection('Manual')
-            self.manual_abi_sizer.Show(0)
-            self.manual_abi_sizer.Show(1)
-            self.Layout()
-            self.manual_ABI.SetValue(ABI)
-            response = requests.get(url)
-            if response.status_code >= 400:
-                raise
-            soup = BeautifulSoup(response.text)
+            if not metadata:
+                response = requests.get(url)
+                if response.status_code >= 400:
+                    raise
+                soup = BeautifulSoup(response.text)
+            else:
+                return
         except Exception as e:
             print(f'Exception fetching url: {e}')
-            wx.MessageBox(f"Network error in fetching url, please continue input manually or try again.\n\n", "Error" ,wx.OK | wx.ICON_WARNING)
-            self.Parent.FindWindowById(8).SetValue('')
+            wx.MessageBox(f"Metadata not found in database, please continue input manually.\n\n", "Info" ,wx.OK | wx.ICON_WARNING)
             self.Parent.FindWindowById(8).Enable()
             self.Parent.FindWindowById(8).SetEditable(True)            
             return
@@ -359,7 +387,6 @@ class Panel(wx.Panel):
         except Exception as e:
             print(f'Exception fetching metadata: {e}')
             wx.MessageBox(f"Network error in fetching Metadata, please input manually or try again.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
-            self.Parent.FindWindowById(8).SetValue('')
             self.Parent.FindWindowById(8).SetEditable(True)
 
     def fetch_ABI(self,url,contract_address,api_key):
@@ -368,12 +395,15 @@ class Panel(wx.Panel):
             resp = response.json()['result']
             print(response.status_code)
             if response.status_code >= 400 or 'Invalid' in resp or 'verified' in resp:
-                raise Exception('Source not verified or Invalid API key')
+                raise Exception(resp)
             self.manual_ABI.SetEditable(False)
             self.manual_ABI.Disable()
         except Exception as e:
             print(f'Exception fetching ABI: {e}')
-            wx.MessageBox(f"Network error in fetching ABI, please input manually or try again.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            if 'Invalid' in str(e) or 'verified' in str(e):
+                wx.MessageBox(f"ABI could not be fetched, please input manually or try again.\n\nInfo:\n\n{e}", "Info" ,wx.OK | wx.ICON_WARNING)
+            else:
+                wx.MessageBox(f"Network error in fetching ABI, please input manually or try again.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
             self.manual_ABI.SetEditable(True)
             self.manual_ABI.Enable()
             resp = ''
@@ -520,7 +550,8 @@ class Panel(wx.Panel):
         print(f'Fetching NFT: {url}')
         self.metedata_label.SetLabel('Metadata (Loading preview...)')
         DownloadThread(self,url)
-        wx.MessageBox(f"NFT preview will be available shortly.", "Error" ,wx.OK | wx.ICON_INFORMATION)
+        # self.preview_text.SetLabel('Loading preview')
+        # wx.MessageBox(f"NFT preview will be available shortly.", "Error" ,wx.OK | wx.ICON_INFORMATION)
 
     def downloaded(self, data):
         try:
@@ -539,6 +570,10 @@ class Panel(wx.Panel):
 
     def show_nft(self,nft_type,data):
         self.Parent.SetSize(1200,1200)
+        self.col_sizer_2.Clear(1)
+        self.col_sizer_2.AddSpacer(500)
+        # self.col_sizer_2.Add(self.preview_text,0,wx.CENTER,0)
+        # self.preview_text.SetLabel('NFT Preview')
         if nft_type == 'gif':
             ft = tempfile.NamedTemporaryFile(delete=False, suffix=".gif")
             ft.write(data)
@@ -552,6 +587,19 @@ class Panel(wx.Panel):
             self.Layout()
         else:
             print('Not gif')
+            img = wx.Image(io.BytesIO(data)).ConvertToBitmap()
+            img = self.scale_bitmap(img, 500, img.GetHeight())
+            nft = wx.StaticBitmap(self, -1, img, (0,500))
+            self.col_sizer_2.Add(nft,0,wx.CENTER,0)
+            self.Layout()
+
+    def scale_bitmap(self,bitmap, width, height):
+        image = bitmap.ConvertToImage()
+        rescale_height = ((bitmap.GetWidth()-500)/bitmap.GetWidth())*bitmap.GetHeight()
+        height_rescaled = bitmap.GetHeight()-rescale_height
+        image = image.Scale(width, height_rescaled, wx.IMAGE_QUALITY_HIGH)
+        result = wx.Bitmap(image)
+        return result
             
     def on_media_loaded(self, event):
         self.anim.Play()
@@ -564,7 +612,7 @@ class NFT_Form_App(wx.App):
     def __init__(self):
         super(NFT_Form_App, self).__init__()
         self.locale = wx.Locale(wx.LANGUAGE_ENGLISH)
-        self.frame = wx.Frame(None, -1, "NFT CARD MANAGER",pos=((wx.DisplaySize()[0]/2)-325,(wx.DisplaySize()[1]/2)-600),size=(650,1200))
+        self.frame = wx.Frame(None, -1, "NFT CARD MANAGER",pos=((wx.DisplaySize()[0]/2)-600,(wx.DisplaySize()[1]/2)-600),size=(1200,1200))
         self.panel = Panel(self.frame, -1)
         self.frame.Show(1)
         self.MainLoop()
