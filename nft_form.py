@@ -460,8 +460,8 @@ class Panel(wx.Panel):
             d['ABI'] = slot_data[4]
         slots.append(d)
         slots.append(slot_data[3])
-        slots[0] = str(slots[0])
-        slots[2] = str(slots[2])
+        slots[0] = str(slots[0]).replace('\'','\"')
+        slots[2] = str(slots[2]).replace('\'','\"')
         meta_str = str(slots[3]).replace('\'','\"')
         meta = eval(meta_str)
         meta_url = meta['image_url'].split('/')
