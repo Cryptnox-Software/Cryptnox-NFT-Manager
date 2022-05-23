@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "NFT Card Manager"
-!define PRODUCT_VERSION "1.1.1"
+!define PRODUCT_VERSION "1.1.2"
 !define PRODUCT_PUBLISHER "Cryptnox SA"
 !define PRODUCT_WEB_SITE "https://cryptnox.ch"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\NFT Card Manager.exe"
@@ -44,7 +44,7 @@ SetCompressor lzma
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "NFTCardManager-setup.exe"
+OutFile "Setup.exe"
 InstallDir "$PROGRAMFILES\NFT Card Manager"
 InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
