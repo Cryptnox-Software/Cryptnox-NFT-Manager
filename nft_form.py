@@ -9,12 +9,15 @@ import filetype
 import tempfile
 from wx import media
 import io
-from wx.lib.pubsub import pub
+from pubsub import pub
+from eth_utils.curried import keccak
+from web3 import Web3
 
 class Panel(wx.Panel):
 
     def __init__(self,parent,id):
         super(Panel,self).__init__(parent,id)
+        self.opensea_apikey = '31e9b4471d30479186e089c36268e35e'
         self.columns = ['Field 1','Field 2','PIN','PUK','Chain Name and ID','Contract address','Token ID','Metadata']
         self.SetBackgroundColour('black')
         self.SetForegroundColour('white')
@@ -47,16 +50,7 @@ class Panel(wx.Panel):
         }
 
         font = wx.Font(13, wx.DECORATIVE,wx.NORMAL, wx.NORMAL)
-
-        main_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        col_sizer = wx.BoxSizer(wx.VERTICAL)
-        main_sizer.Add(col_sizer,1,wx.ALIGN_LEFT)
-        self.col_sizer_2 = wx.BoxSizer(wx.VERTICAL)
-        self.col_sizer_2.AddSpacer(500)
-        self.preview_text = wx.StaticText(self,label="")
-        self.preview_text.SetFont(font)
-        self.col_sizer_2.Add(self.preview_text,0,wx.CENTER,0)
-        main_sizer.Add(self.col_sizer_2,1,wx.RESERVE_SPACE_EVEN_IF_HIDDEN)
+        top_sizer = wx.BoxSizer(wx.VERTICAL)
 
         #Cryptnox logo on top
         path = Path(__file__).parent.joinpath("cryptnox_transparent.png").absolute()
@@ -67,15 +61,28 @@ class Panel(wx.Panel):
         image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
         row_sizer.Add(image,1,wx.ALL)
-        col_sizer.Add(row_sizer,1,wx.EXPAND)
+        top_sizer.Add(row_sizer,1,wx.EXPAND)
+
+        main_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        top_sizer.Add(main_sizer,1,wx.ALL)
+        col_sizer = wx.BoxSizer(wx.VERTICAL)
+        main_sizer.Add(col_sizer,1,wx.ALIGN_LEFT)
+        self.col_sizer_2 = wx.BoxSizer(wx.VERTICAL)
+        self.col_sizer_2.AddSpacer(300)
+        self.preview_text = wx.StaticText(self,label="")
+        self.preview_text.SetFont(font)
+        self.col_sizer_2.Add(self.preview_text,0,wx.CENTER,0)
+        main_sizer.Add(self.col_sizer_2,1,wx.RESERVE_SPACE_EVEN_IF_HIDDEN)
+
+        
 
         for x in range(0,4):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
             text = wx.StaticText(self,label=self.columns[x])
             text.SetFont(font)
-            row_sizer.Add(text,1,wx.ALL,border=10)
+            row_sizer.Add(text,1,wx.ALL,border=5)
             field = wx.TextCtrl(self,x+1)            
-            row_sizer.Add(field,1,wx.ALL,border=10)
+            row_sizer.Add(field,1,wx.ALL,border=5)
             col_sizer.Add(row_sizer,1,wx.EXPAND)
 
         #Input methods choice
@@ -203,7 +210,7 @@ class Panel(wx.Panel):
         col_sizer.Add(row_sizer,1,wx.EXPAND)
 
 
-        self.SetSizerAndFit(main_sizer)
+        self.SetSizerAndFit(top_sizer)
 
         for x in range(5,9):
             field = self.Parent.FindWindowById(x)
@@ -393,6 +400,7 @@ class Panel(wx.Panel):
         try:
             response = requests.get(url+f'&address={contract_address}'+f'&apikey={api_key}')
             resp = response.json()['result']
+            print(f'{resp}')
             print(response.status_code)
             if response.status_code >= 400 or 'Invalid' in resp or 'verified' in resp:
                 raise Exception(resp)
@@ -450,17 +458,19 @@ class Panel(wx.Panel):
         slots.append('')
         d = {}
         if slot_data[4] == '':
+            print(f'Getting ABI')
             endpoint = self.endpoint_choice.GetStringSelection()
             contract_address = slot_data[1]
             ABI_resp = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
             if ABI_resp == '':
+                print('No ABI')
                 return
             d['ABI'] = ABI_resp
         else:
             d['ABI'] = slot_data[4]
-        slots.append(d)
+        slots.append(slot_data[4])
         slots.append(slot_data[3])
-        slots[0] = str(slots[0]).replace('\'','\"')
+        slots[0] = str(slots[0]).replace('\'','\"').replace('token_id','nft_id')
         slots[2] = str(slots[2]).replace('\'','\"')
         meta_str = str(slots[3]).replace('\'','\"')
         meta = eval(meta_str)
@@ -492,7 +502,14 @@ class Panel(wx.Panel):
             wx.MessageBox(f"Error writing data to card.\n\n {e}", "Error" ,wx.OK | wx.ICON_WARNING)
             return
         print('Data written')
-        wx.MessageBox("Card has been loaded with the NFT, it can now be viewed with Cryptnox Gallery.", "Info" ,wx.OK | wx.ICON_INFORMATION)
+        print("Generating seed...")
+        card.generate_seed(data["PIN"])
+        print("Seed generated")
+        public_key = card.get_public_key()
+        address = self.checksum_address(public_key)
+        wx.MessageBox("Card has been loaded with the NFT, it can now be viewed with Cryptnox Gallery.\n"
+        f"Your address is: {address}"
+        f"\nTransfer tokens to it to complete the initialization process.", "Info" ,wx.OK | wx.ICON_INFORMATION)
         wx.CallAfter(self.Parent.Close)
 
     def get_card(self):
@@ -569,9 +586,9 @@ class Panel(wx.Panel):
             print(f'Exception in downloaded: {e}')
 
     def show_nft(self,nft_type,data):
-        self.Parent.SetSize(1200,1200)
+        self.Parent.SetSize(1200,1050)
         self.col_sizer_2.Clear(1)
-        self.col_sizer_2.AddSpacer(500)
+        self.col_sizer_2.AddSpacer(300)
         # self.col_sizer_2.Add(self.preview_text,0,wx.CENTER,0)
         # self.preview_text.SetLabel('NFT Preview')
         if nft_type == 'gif':
@@ -579,7 +596,7 @@ class Panel(wx.Panel):
             ft.write(data)
             ft.flush()
             ft.close()
-            self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,500), size=(500,500))
+            self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,300), size=(500,500))
             self.anim.Bind(media.EVT_MEDIA_LOADED, self.on_media_loaded)
             self.anim.Bind(media.EVT_MEDIA_FINISHED,self.on_media_finished)
             self.anim.Load(ft.name)
@@ -607,12 +624,19 @@ class Panel(wx.Panel):
     def on_media_finished(self,event: media.EVT_MEDIA_FINISHED):
         self.anim.Play()
 
+    def address(self,public_key: str) -> str:
+        return keccak(hexstr=("0x" + public_key[2:]))[-20:].hex()
+
+
+    def checksum_address(self,public_key: str) -> str:
+        return Web3.toChecksumAddress(self.address(public_key))
+
 class NFT_Form_App(wx.App):
 
     def __init__(self):
         super(NFT_Form_App, self).__init__()
         self.locale = wx.Locale(wx.LANGUAGE_ENGLISH)
-        self.frame = wx.Frame(None, -1, "NFT CARD MANAGER",pos=((wx.DisplaySize()[0]/2)-600,(wx.DisplaySize()[1]/2)-600),size=(1200,1200))
+        self.frame = wx.Frame(None, -1, "NFT CARD MANAGER",pos=((wx.DisplaySize()[0]/2)-600,(wx.DisplaySize()[1]/2)-525),size=(1200,1050))
         self.panel = Panel(self.frame, -1)
         self.frame.Show(1)
         self.MainLoop()

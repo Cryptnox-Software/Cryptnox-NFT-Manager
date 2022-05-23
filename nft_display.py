@@ -26,7 +26,7 @@ class DownloadThread(Thread):
                 if total_size/1024 < self.file_size:
                     download_progress = total_size/1024
                     total_file_size = self.file_size/1024
-                    print(f'Downloading: {(download_progress/total_file_size)*100}')
+                    # print(f'Downloading: {(download_progress/total_file_size)*100}')
             wx.CallAfter(pub.sendMessage, "downloaded", data=self.data)
         except Exception as e:
             print(f'Exception in downloading: {e}')
