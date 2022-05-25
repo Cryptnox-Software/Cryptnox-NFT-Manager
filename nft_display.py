@@ -1,6 +1,6 @@
 from threading import Thread
 import wx
-from wx.lib.pubsub import pub
+from pubsub import pub
 import requests
 
 class DownloadThread(Thread):
@@ -23,10 +23,11 @@ class DownloadThread(Thread):
                 if byte:
                     self.data += byte
                 total_size += len(byte)
-                if total_size/1024 < self.file_size:
+                if total_size/1024 <= self.file_size:
                     download_progress = total_size/1024
-                    total_file_size = self.file_size/1024
-                    # print(f'Downloading: {(download_progress/total_file_size)*100}')
+                    total_file_size = self.file_size
+                    progress = (download_progress/total_file_size)*100
+                    print(f'Downloading: {progress}')
             wx.CallAfter(pub.sendMessage, "downloaded", data=self.data)
         except Exception as e:
             print(f'Exception in downloading: {e}')

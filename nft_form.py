@@ -245,7 +245,6 @@ class Panel(wx.Panel):
         self.Parent.FindWindowById(8).Bind(wx.EVT_TEXT,self.metedata_changed)
         
     def info_card(self,event):
-        print('Info')
         message = ''
         try:
             card = self.get_card()
@@ -253,49 +252,52 @@ class Panel(wx.Panel):
             wx.MessageBox(f"Card or reader not found, please ensure device is connected.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
             return
         slots = []
-        for i in range(0,4):
-            slots.append(gzip.decompress(card.user_data[i]))
-        slot0 = json.loads(slots[0].decode('UTF-8'))
-        print(type(slot0))
-        print(slot0)
-        abi = slots[2].decode("UTF8")
-        # message+='----------------------------------------------'
-        seed_source = card.seed_source
-        message+=f'\n{self._SEED_SOURCE_TRANSLATION[seed_source]}'
-        # message+='\n----------------------------------------------'
-        public_key = card.get_public_key()
-        message+=f'\nPublic key: \n{public_key}'
-        # message+='\n----------------------------------------------'
-        result = utils._private_key_check(card,bytes.fromhex(public_key))
-        message+=f'\nPrivate key check: \n{result}'
-        # message+='\n----------------------------------------------'
-        result = utils._history_counter(card)
-        message+=f'\n{result}'
-        # message+='\n----------------------------------------------'
-        address = self.checksum_address(public_key)
-        message+=f'\nAddress: \n{address}'
-        # message+='\n----------------------------------------------'
-        message+=f'\nChecking owner on contract:{slot0["contract_address"]}'
-        result = utils._owner(slot0['endpoint'], slot0['contract_address'], abi, address, slot0['nft_id'])
-        message+=f'\n{result}'
-        # message+='\n----------------------------------------------'
-        result = utils._balance(slot0['endpoint'], address)
-        message+=f'\n{result}'
-        # message+='\n----------------------------------------------'
-        message+=f"\nEndpoint: {slot0['endpoint']}"
-        # message+="\n----------------------------------------------"
-        message+=f"\nChain ID: {slot0['chain_id']}"
-        # message+="\n----------------------------------------------"
-        message+=f"\nContract address: {slot0['contract_address']}"
-        # message+="\n----------------------------------------------"
-        message+=f"\nNFT ID: {slot0['nft_id']}"
-        # message+="\n----------------------------------------------"
-        metadata = slots[3].decode("UTF8").replace("\n", "")
-        message+=f"\nmetadata: {metadata}"
-        # message+="\n----------------------------------------------"
-        result = utils._url(metadata)
-        message+=f'\n{result}'
-        wx.MessageBox(message, "Info" ,wx.OK | wx.ICON_WARNING)
+        try:
+            for i in range(0,4):
+                slots.append(gzip.decompress(card.user_data[i]))
+            slot0 = json.loads(slots[0].decode('UTF-8'))
+            abi = slots[2].decode("UTF8")
+            # message+='----------------------------------------------'
+            seed_source = card.seed_source
+            message+=f'\n{self._SEED_SOURCE_TRANSLATION[seed_source]}'
+            # message+='\n----------------------------------------------'
+            public_key = card.get_public_key()
+            message+=f'\nPublic key: \n{public_key}'
+            # message+='\n----------------------------------------------'
+            result = utils._private_key_check(card,bytes.fromhex(public_key))
+            message+=f'\nPrivate key check: \n{result}'
+            # message+='\n----------------------------------------------'
+            result = utils._history_counter(card)
+            message+=f'\n{result}'
+            # message+='\n----------------------------------------------'
+            address = self.checksum_address(public_key)
+            message+=f'\nAddress: \n{address}'
+            # message+='\n----------------------------------------------'
+            message+=f'\nChecking owner on contract:{slot0["contract_address"]}'
+            result = utils._owner(slot0['endpoint'], slot0['contract_address'], abi, address, slot0['nft_id'])
+            message+=f'\n{result}'
+            # message+='\n----------------------------------------------'
+            result = utils._balance(slot0['endpoint'], address)
+            message+=f'\n{result}'
+            # message+='\n----------------------------------------------'
+            message+=f"\nEndpoint: {slot0['endpoint']}"
+            # message+="\n----------------------------------------------"
+            message+=f"\nChain ID: {slot0['chain_id']}"
+            # message+="\n----------------------------------------------"
+            message+=f"\nContract address: {slot0['contract_address']}"
+            # message+="\n----------------------------------------------"
+            message+=f"\nNFT ID: {slot0['nft_id']}"
+            # message+="\n----------------------------------------------"
+            metadata = slots[3].decode("UTF8").replace("\n", "")
+            message+=f"\nmetadata: {metadata}"
+            # message+="\n----------------------------------------------"
+            result = utils._url(metadata)
+            message+=f'\n{result}'
+            # wx.MessageBox(message, "Info" ,wx.OK | wx.ICON_WARNING)
+            MessageBox(self,'Card info',message)
+        except Exception as e:
+            print(f'Error getting card info: {e}')
+            wx.MessageBox(f"Could not get info from card, please ensure card is initialized.", "Error" ,wx.OK | wx.ICON_WARNING)
 
         
 
@@ -359,8 +361,7 @@ class Panel(wx.Panel):
             self.Layout()
 
     def file_picked(self,event: wx.EVT_FILEPICKER_CHANGED):
-        path_picked = self.file_picker.GetPath()
-        print(path_picked[-3:])
+        path_picked = self.file_picker.GetPath()    
         if path_picked[-3:] == 'txt' and 'NFT' in path_picked:
             try:
                 with open(path_picked,'r') as file:
@@ -379,6 +380,7 @@ class Panel(wx.Panel):
                 elif 'ethereum' in l[-2]:
                     self.endpoint_choice.SetStringSelection('Ethereum')
                 else:
+                    wx.MessageBox("Unrecognized endpoint, please contact developer", "Info" ,wx.OK | wx.ICON_WARNING)
                     print(f'Unrecognized endpoint: {l[-2]}')
             except Exception as e:
                 wx.MessageBox("Please select a valid txt file with NFT fields.", "Info" ,wx.OK | wx.ICON_WARNING)
@@ -455,8 +457,6 @@ class Panel(wx.Panel):
             self.Parent.FindWindowById(8).Enable()
             self.Parent.FindWindowById(8).SetEditable(True)            
             return
-        # with open('Goo.html') as fp:
-        #     soup = BeautifulSoup(fp, 'html.parser')
         divs = soup.find_all("div",{'class':'Blockreact__Block-sc-1xf18x6-0 elqhCm'})
         spans = divs[1].find_all("span")
         metadata_url = spans[4].find_all("a")[0]['href']
@@ -471,8 +471,7 @@ class Panel(wx.Panel):
     def fetch_ABI(self,url,contract_address,api_key):
         try:
             response = requests.get(url+f'&address={contract_address}'+f'&apikey={api_key}')
-            resp = response.json()['result']
-            print(f'{resp}')
+            resp = response.json()['result']            
             print(response.status_code)
             if response.status_code >= 400 or 'Invalid' in resp or 'verified' in resp:
                 raise Exception(resp)
@@ -524,7 +523,7 @@ class Panel(wx.Panel):
         d = {}
         d['endpoint'] = self.endpoint_urls[self.endpoint_choice.GetStringSelection()]
         d['chain_id'] = self.chains[self.endpoint_choice.GetStringSelection()]['id']
-        d['contract_address'] = slot_data[1]
+        d['contract_address'] = Web3.toChecksumAddress(slot_data[1])
         d['token_id'] = slot_data[2]
         slots.append(d)
         slots.append('')
@@ -550,10 +549,6 @@ class Panel(wx.Panel):
         image_url = f'https://cloudflare-ipfs.com/ipfs/{meta_url[-2]}/{meta_url[-1]}'
         meta['image_url'] = image_url
         slots[3] = str(meta).replace('\'','\"')
-        print(data)
-        print(slots[0])
-        print(type(slots[0]))
-        print(slots[3])
         try:
             card.init(data['Name'],data['Mail'],data['PIN'],data['PUK'],nfc_sign=self.NFC_choice.GetValue())
         except Exception as e:
@@ -582,7 +577,6 @@ class Panel(wx.Panel):
         wx.MessageBox("Card has been loaded with the NFT, it can now be viewed with Cryptnox Gallery.\n"
         f"Your address is: {address}"
         f"\nTransfer tokens to it to complete the initialization process.", "Info" ,wx.OK | wx.ICON_INFORMATION)
-        wx.CallAfter(self.Parent.Close)
 
     def get_card(self):
         return cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
@@ -702,6 +696,19 @@ class Panel(wx.Panel):
 
     def checksum_address(self,public_key: str) -> str:
         return Web3.toChecksumAddress(self.address(public_key))
+
+class MessageBox(wx.Dialog):
+    def __init__(self, parent, title, message):
+        wx.Dialog.__init__(self, parent, title=title,size=(1000,600))
+        print(message.split('\n'))
+        height = 0
+        for each in message.split('\n'):
+            text = wx.TextCtrl(self, style=wx.TE_READONLY|wx.BORDER_NONE,pos=(30,height),size=(1000,23))
+            text.SetValue(each)
+            # text.SetBackgroundColour(wx.SystemSettings.GetColour(4))
+            height+=23
+        self.ShowModal()
+        # self.Destroy()
 
 class NFT_Form_App(wx.App):
 
