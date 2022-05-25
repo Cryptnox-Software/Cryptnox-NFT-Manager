@@ -8,7 +8,7 @@ a = Analysis(
     ['nft_form.py'],
     pathex=[],
     binaries=[],
-    datas=[('cryptnox_transparent.png', '.'), ('nft_display.py', '.')],
+    datas=[('.\\nft_display.py', '.'), ('.\\utils.py', '.'), ('.\\cryptnox_transparent.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
