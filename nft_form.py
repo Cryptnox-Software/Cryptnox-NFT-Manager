@@ -1,3 +1,4 @@
+from turtle import left
 import requests
 import wx
 import cryptnoxpy
@@ -12,6 +13,8 @@ import io
 from pubsub import pub
 from eth_utils.curried import keccak
 from web3 import Web3
+import utils
+import json
 
 class Panel(wx.Panel):
 
@@ -47,6 +50,11 @@ class Panel(wx.Panel):
         self.abi_urls = {
             'Polygon':'https://api.polygonscan.com/api?module=contract&action=getabi',
             'Ethereum':'https://api.etherscan.io/api?module=contract&action=getabi'
+        }
+        self._SEED_SOURCE_TRANSLATION = {
+            cryptnoxpy.SeedSource.NO_SEED: "No seed",
+            cryptnoxpy.SeedSource.INTERNAL: "Single card",
+            cryptnoxpy.SeedSource.DUAL: "Dual card",
         }
 
         font = wx.Font(13, wx.DECORATIVE,wx.NORMAL, wx.NORMAL)
@@ -191,13 +199,22 @@ class Panel(wx.Panel):
 
         #Reset card and Execute load buttons
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.reset_btn = wx.Button(self,-1,size=(0,40))
+        left_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.reset_btn = wx.Button(self,-1,size=(50,40))
         self.reset_btn.SetFont(font)
-        self.reset_btn.SetLabel('Reset card')
+        self.reset_btn.SetLabel('Reset')
 
         self.reset_btn.Bind(wx.EVT_BUTTON,self.reset_card)
 
-        row_sizer.Add(self.reset_btn,1,wx.ALL,border=30)
+        left_sizer.Add(self.reset_btn,1,wx.RIGHT,border=20)
+
+        self.info_btn = wx.Button(self,-1,size=(50,40))
+        self.info_btn.SetFont(font)
+        self.info_btn.SetLabel('Info')
+
+        self.info_btn.Bind(wx.EVT_BUTTON,self.info_card)
+
+        left_sizer.Add(self.info_btn,1,wx.ALL,border=0)
 
         self.execute_btn = wx.Button(self,-1,size=(250,40))
         self.execute_btn.SetFont(font)
@@ -205,6 +222,7 @@ class Panel(wx.Panel):
 
         self.execute_btn.Bind(wx.EVT_BUTTON,self.execute_load)
 
+        row_sizer.Add(left_sizer,1,wx.ALL,border=30)
         row_sizer.Add(self.execute_btn,1,wx.ALL,border=30)
 
         col_sizer.Add(row_sizer,1,wx.EXPAND)
@@ -225,6 +243,60 @@ class Panel(wx.Panel):
         pub.subscribe(self.downloaded, "downloaded")
 
         self.Parent.FindWindowById(8).Bind(wx.EVT_TEXT,self.metedata_changed)
+        
+    def info_card(self,event):
+        print('Info')
+        message = ''
+        try:
+            card = self.get_card()
+        except Exception as e:
+            wx.MessageBox(f"Card or reader not found, please ensure device is connected.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            return
+        slots = []
+        for i in range(0,4):
+            slots.append(gzip.decompress(card.user_data[i]))
+        slot0 = json.loads(slots[0].decode('UTF-8'))
+        print(type(slot0))
+        print(slot0)
+        abi = slots[2].decode("UTF8")
+        # message+='----------------------------------------------'
+        seed_source = card.seed_source
+        message+=f'\n{self._SEED_SOURCE_TRANSLATION[seed_source]}'
+        # message+='\n----------------------------------------------'
+        public_key = card.get_public_key()
+        message+=f'\nPublic key: \n{public_key}'
+        # message+='\n----------------------------------------------'
+        result = utils._private_key_check(card,bytes.fromhex(public_key))
+        message+=f'\nPrivate key check: \n{result}'
+        # message+='\n----------------------------------------------'
+        result = utils._history_counter(card)
+        message+=f'\n{result}'
+        # message+='\n----------------------------------------------'
+        address = self.checksum_address(public_key)
+        message+=f'\nAddress: \n{address}'
+        # message+='\n----------------------------------------------'
+        message+=f'\nChecking owner on contract:{slot0["contract_address"]}'
+        result = utils._owner(slot0['endpoint'], slot0['contract_address'], abi, address, slot0['nft_id'])
+        message+=f'\n{result}'
+        # message+='\n----------------------------------------------'
+        result = utils._balance(slot0['endpoint'], address)
+        message+=f'\n{result}'
+        # message+='\n----------------------------------------------'
+        message+=f"\nEndpoint: {slot0['endpoint']}"
+        # message+="\n----------------------------------------------"
+        message+=f"\nChain ID: {slot0['chain_id']}"
+        # message+="\n----------------------------------------------"
+        message+=f"\nContract address: {slot0['contract_address']}"
+        # message+="\n----------------------------------------------"
+        message+=f"\nNFT ID: {slot0['nft_id']}"
+        # message+="\n----------------------------------------------"
+        metadata = slots[3].decode("UTF8").replace("\n", "")
+        message+=f"\nmetadata: {metadata}"
+        # message+="\n----------------------------------------------"
+        result = utils._url(metadata)
+        message+=f'\n{result}'
+        wx.MessageBox(message, "Info" ,wx.OK | wx.ICON_WARNING)
+
         
 
     def on_radio_choice(self,event):
