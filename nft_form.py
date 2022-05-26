@@ -20,6 +20,12 @@ class Panel(wx.Panel):
 
     def __init__(self,parent,id):
         super(Panel,self).__init__(parent,id)
+        self.mode = 'URL'
+        self.field_placeholders = {
+            'URL':'<Please input URL above>',
+            'File':'<Please select file above>',
+            'Manual':''
+        }
         self.opensea_apikey = '31e9b4471d30479186e089c36268e35e'
         self.columns = ['Field 1','Field 2','PIN','PUK','Chain Name and ID','Contract address','Token ID','Metadata']
         self.SetBackgroundColour('black')
@@ -98,6 +104,14 @@ class Panel(wx.Panel):
         text = wx.StaticText(self,label='Please choose NFT data input method below:')
         text.SetFont(font)
         row_sizer.Add(text,1,wx.ALL,border=10)
+
+        self.clear_fields_btn = wx.Button(self,-1,label='Reset all fields',size=(100,30))
+        self.clear_fields_btn.SetFont(font)
+        self.clear_fields_btn.SetBackgroundColour('gray')
+        self.clear_fields_btn.Bind(wx.EVT_BUTTON,self.clear_fields)
+        # row_sizer.AddSpacer(100)
+        row_sizer.Add(self.clear_fields_btn,1,wx.ALL,border=10)
+
         col_sizer.Add(row_sizer,1,wx.EXPAND)
 
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -169,7 +183,7 @@ class Panel(wx.Panel):
         text = wx.StaticText(self,label='ABI')
         text.SetFont(font)
         row_sizer.Add(text,1,wx.ALL,border=10)
-        self.ABI_chooser = wx.ListBox(self,choices=self.ABI_modes)
+        self.ABI_chooser = ABIChooser(self,choices=self.ABI_modes)
         self.ABI_chooser.SetStringSelection(self.ABI_modes[0])
         self.ABI_chooser.Bind(wx.EVT_LISTBOX,self.ABI_chosen)
         row_sizer.Add(self.ABI_chooser,1,wx.ALL,border=10)
@@ -243,6 +257,36 @@ class Panel(wx.Panel):
         pub.subscribe(self.downloaded, "downloaded")
 
         self.Parent.FindWindowById(8).Bind(wx.EVT_TEXT,self.metedata_changed)
+
+    def clear_fields(self,event):
+        for i in range(1,len(self.columns)+1):
+            field = self.Parent.FindWindowById(i)
+            if 'Please' in field.GetValue():
+                pass
+            elif i in [3,4]:
+                if i == 3:
+                    field.SetValue('000000000')
+                else:
+                    field.SetValue('000000000000')
+            else:
+                if i in [5,6,7,8]:
+                    print(f'Clearing field {i}, {field.GetValue()}')
+                    field.SetValue(self.field_placeholders[self.mode])
+                else:
+                    field.SetValue('')
+            self.endpoint_choice.Clear()
+            self.endpoint_choice.SetItems([f'{key}: {value}' for key,value in self.endpoint_urls.items()])
+            self.endpoint_choice.Enable()
+            self.manual_ABI.SetValue('')
+            self.manual_abi_sizer.Hide(0)
+            self.manual_abi_sizer.Hide(1)
+            self.manual_ABI.SetEditable(False)
+            self.ABI_chooser.Enable()
+            self.Layout()
+            self.ABI_chooser.SetStringSelection('Automatic')
+            self.url_field.SetValue('')
+
+        
         
     def info_card(self,event='',message=''):
         try:
@@ -270,7 +314,7 @@ class Panel(wx.Panel):
             message+=f'\n{result}'
             # message+='\n----------------------------------------------'
             address = self.checksum_address(public_key)
-            message+=f'\nAddress: \n{address}'
+            message+=f'\nYour card address: \n{address}'
             # message+='\n----------------------------------------------'
             message+=f'\nChecking owner on contract'
             result = utils._owner(slot0['endpoint'], slot0['contract_address'], abi, address, slot0['nft_id'])
@@ -283,9 +327,9 @@ class Panel(wx.Panel):
             # message+="\n----------------------------------------------"
             message+=f"\nChain ID: {slot0['chain_id']}"
             # message+="\n----------------------------------------------"
-            message+=f"\nContract address: {slot0['contract_address']}"
+            message+=f"\nNFT Contract address: {slot0['contract_address']}"
             # message+="\n----------------------------------------------"
-            message+=f"\nNFT ID: {slot0['nft_id']}"
+            message+=f"\nNFT Token ID: {slot0['nft_id']}"
             # message+="\n----------------------------------------------"
             metadata = slots[3].decode("UTF8").replace("\n", "")
             message+=f"\nmetadata: {metadata}"
@@ -303,6 +347,7 @@ class Panel(wx.Panel):
     def on_radio_choice(self,event):
         choice = event.GetEventObject().GetLabel()
         if 'URL' in choice:
+            self.mode = 'URL'
             self.file_picker_sizer.Hide(0)
             self.file_picker_sizer.Hide(1)
             self.url_input_sizer.Show(0)
@@ -315,8 +360,10 @@ class Panel(wx.Panel):
                 field.Disable()
             self.manual_ABI.SetEditable(False)
             self.endpoint_choice.Disable()
-            self.endpoint_choice.SetStringSelection('')
+            self.endpoint_choice.Clear()
+            self.endpoint_choice.SetItems([f'{key}: {value}' for key,value in self.endpoint_urls.items()])
         elif 'File' in choice:
+            self.mode = 'File'
             self.url_input_sizer.Hide(0)
             self.url_input_sizer.Hide(1)
             self.url_input_sizer.Hide(2)
@@ -329,8 +376,10 @@ class Panel(wx.Panel):
                 field.Disable()
             self.manual_ABI.SetEditable(False)
             self.endpoint_choice.Disable()
-            self.endpoint_choice.SetStringSelection('')
+            self.endpoint_choice.Clear()
+            self.endpoint_choice.SetItems([f'{key}: {value}' for key,value in self.endpoint_urls.items()])
         else:
+            self.mode = 'Manual'
             self.url_input_sizer.Hide(0)
             self.url_input_sizer.Hide(1)
             self.url_input_sizer.Hide(2)
@@ -606,9 +655,12 @@ class Panel(wx.Panel):
             card = self.get_card()
             puk = self.ask(message='Please input your PUK to reset:')
             if puk:
-                self.confirm(message='This will reset the card, are you sure ?')
-                card.reset(puk)
-                wx.MessageBox(f"Card has been reset.", "Info" ,wx.OK | wx.ICON_INFORMATION)
+                confirm = self.confirm(message='This will reset the card, are you sure ?')
+                if confirm == 5100:
+                    card.reset(puk)
+                    wx.MessageBox(f"Card has been reset.", "Info" ,wx.OK | wx.ICON_INFORMATION)
+                else:
+                    return
         except Exception as e:
             wx.MessageBox(f"Error resetting card:\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_INFORMATION)
             return
@@ -622,9 +674,9 @@ class Panel(wx.Panel):
 
     def confirm(parent=None, message=''):
         dlg = wx.MessageDialog(parent,message,caption='Confirm card reset', style=wx.OK | wx.CANCEL)
-        # dlg.Bind(wx.
-        dlg.ShowModal()
+        result = dlg.ShowModal()
         dlg.Destroy()
+        return result
 
     def metedata_changed(self,event):
         v = self.Parent.FindWindowById(8).GetValue()
@@ -705,6 +757,19 @@ class Panel(wx.Panel):
 
     def checksum_address(self,public_key: str) -> str:
         return Web3.toChecksumAddress(self.address(public_key))
+
+class ABIChooser(wx.ListBox):
+
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self.normalAttr = []
+        self.normalAttr.append(wx.ListItemAttr())
+        grayAttr = wx.ListItemAttr()
+        grayAttr.SetBackgroundColour(wx.Colour(52,229,235,255))
+        self.normalAttr.append(grayAttr)
+    
+    def OnGetItemAttr(self, item):
+        return self.normalAttr[item % 2]
 
 class MessageBox(wx.Dialog):
     def __init__(self, parent, title, message):
