@@ -191,7 +191,7 @@ class Panel(wx.Panel):
         text = wx.StaticText(self,label='Endpoint')
         text.SetFont(font)
         row_sizer.Add(text,1,wx.ALL,border=10)
-        self.endpoint_choice = wx.Choice(self,choices=self.endpoints)
+        self.endpoint_choice = wx.Choice(self,choices=[f'{key}: {value}' for key,value in self.endpoint_urls.items()])
         row_sizer.Add(self.endpoint_choice,1,wx.ALL,border=10)
         col_sizer.Add(row_sizer,1,wx.EXPAND)
 
@@ -244,8 +244,7 @@ class Panel(wx.Panel):
 
         self.Parent.FindWindowById(8).Bind(wx.EVT_TEXT,self.metedata_changed)
         
-    def info_card(self,event):
-        message = ''
+    def info_card(self,event='',message=''):
         try:
             card = self.get_card()
         except Exception as e:
@@ -259,10 +258,10 @@ class Panel(wx.Panel):
             abi = slots[2].decode("UTF8")
             # message+='----------------------------------------------'
             seed_source = card.seed_source
-            message+=f'\n{self._SEED_SOURCE_TRANSLATION[seed_source]}'
+            message+=f'{self._SEED_SOURCE_TRANSLATION[seed_source]}'
             # message+='\n----------------------------------------------'
             public_key = card.get_public_key()
-            message+=f'\nPublic key: \n{public_key}'
+            # message+=f'\nPublic key: \n{public_key}'
             # message+='\n----------------------------------------------'
             result = utils._private_key_check(card,bytes.fromhex(public_key))
             message+=f'\nPrivate key check: \n{result}'
@@ -273,7 +272,7 @@ class Panel(wx.Panel):
             address = self.checksum_address(public_key)
             message+=f'\nAddress: \n{address}'
             # message+='\n----------------------------------------------'
-            message+=f'\nChecking owner on contract:{slot0["contract_address"]}'
+            message+=f'\nChecking owner on contract'
             result = utils._owner(slot0['endpoint'], slot0['contract_address'], abi, address, slot0['nft_id'])
             message+=f'\n{result}'
             # message+='\n----------------------------------------------'
@@ -376,9 +375,9 @@ class Panel(wx.Panel):
                 l.append(lines[3].strip()) #endpoint
                 l.append(lines[18].strip()) #ABI
                 if 'polygon' in l[-2]:
-                    self.endpoint_choice.SetStringSelection('Polygon')
+                    self.endpoint_choice.SetStringSelection(f'Polygon: {self.endpoint_urls["Polygon"]}')
                 elif 'ethereum' in l[-2]:
-                    self.endpoint_choice.SetStringSelection('Ethereum')
+                    self.endpoint_choice.SetStringSelection(f'Ethereum: {self.endpoint_urls["Ethereum"]}')
                 else:
                     wx.MessageBox("Unrecognized endpoint, please contact developer", "Info" ,wx.OK | wx.ICON_WARNING)
                     print(f'Unrecognized endpoint: {l[-2]}')
@@ -413,15 +412,16 @@ class Panel(wx.Panel):
             print(f'Exception parsing url: {e}')
             wx.MessageBox(f"Invalid URL, please try again.\n\n", "Error" ,wx.OK | wx.ICON_WARNING)
             return
-        self.Parent.FindWindowById(5).SetValue(self.chains[endpoint]['name']+' '+self.chains[endpoint]['id'])
+        self.Parent.FindWindowById(5).SetValue(self.chains[endpoint]['id']+' ('+self.chains[endpoint]['name']+')')
         self.Parent.FindWindowById(6).SetValue(contract_address)
         self.Parent.FindWindowById(7).SetValue(token_id)
-        self.endpoint_choice.SetStringSelection(endpoint)
+        self.endpoint_choice.SetStringSelection(f'{endpoint}: {self.endpoint_urls[endpoint]}')
         self.endpoint_choice.Disable()
         self.Parent.FindWindowById(8).SetValue('')
 
         ABI = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
-        self.ABI_chooser.SetStringSelection('Manual')
+        self.ABI_chooser.SetStringSelection('Automatic')
+        self.ABI_chooser.Disable()
         self.manual_abi_sizer.Show(0)
         self.manual_abi_sizer.Show(1)
         self.Layout()
@@ -511,6 +511,10 @@ class Panel(wx.Panel):
             field = self.Parent.FindWindowById(x)
             value = field.GetValue()
             data[l[x]]=value
+        if data['Name'] == '':
+            data['Name'] = 'EASY MODE'
+        if data['Mail'] == '':
+            data['Mail'] = 'EASY MODE'
         if data['PIN'] == '':
             data['PIN'] = '000000000'
         if data['PUK'] == '':
@@ -521,8 +525,9 @@ class Panel(wx.Panel):
             slot_data.append(value)
         slot_data.append(self.manual_ABI.GetValue())
         d = {}
-        d['endpoint'] = self.endpoint_urls[self.endpoint_choice.GetStringSelection()]
-        d['chain_id'] = self.chains[self.endpoint_choice.GetStringSelection()]['id']
+        d['endpoint'] = self.endpoint_urls[self.endpoint_choice.GetStringSelection().split(':')[0]]
+        d['chain_id'] = self.chains[self.endpoint_choice.GetStringSelection().split(':')[0]]['id']
+        print(d['chain_id'])
         d['contract_address'] = Web3.toChecksumAddress(slot_data[1])
         d['token_id'] = slot_data[2]
         slots.append(d)
@@ -572,11 +577,8 @@ class Panel(wx.Panel):
         print("Generating seed...")
         card.generate_seed(data["PIN"])
         print("Seed generated")
-        public_key = card.get_public_key()
-        address = self.checksum_address(public_key)
-        wx.MessageBox("Card has been loaded with the NFT, it can now be viewed with Cryptnox Gallery.\n"
-        f"Your address is: {address}"
-        f"\nTransfer tokens to it to complete the initialization process.", "Info" ,wx.OK | wx.ICON_INFORMATION)
+        message = f"Card has been loaded with the NFT, it can now be viewed with Cryptnox Gallery.\nTransfer tokens to it to complete the initialization process.\n"
+        self.info_card(message=message)
 
     def get_card(self):
         return cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
@@ -584,7 +586,7 @@ class Panel(wx.Panel):
     
     def validate_fields(self):
         l = []
-        for x in range(0,8):
+        for x in range(2,8):
             v = self.Parent.FindWindowById(x+1).GetValue()
             if v == '' or 'Please' in v:
                 l.append(self.columns[x])
@@ -604,6 +606,7 @@ class Panel(wx.Panel):
             card = self.get_card()
             puk = self.ask(message='Please input your PUK to reset:')
             if puk:
+                self.confirm(message='This will reset the card, are you sure ?')
                 card.reset(puk)
                 wx.MessageBox(f"Card has been reset.", "Info" ,wx.OK | wx.ICON_INFORMATION)
         except Exception as e:
@@ -616,6 +619,12 @@ class Panel(wx.Panel):
         result = dlg.GetValue()
         dlg.Destroy()
         return result
+
+    def confirm(parent=None, message=''):
+        dlg = wx.MessageDialog(parent,message,caption='Confirm card reset', style=wx.OK | wx.CANCEL)
+        # dlg.Bind(wx.
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def metedata_changed(self,event):
         v = self.Parent.FindWindowById(8).GetValue()

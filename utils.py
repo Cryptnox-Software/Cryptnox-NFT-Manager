@@ -74,10 +74,10 @@ def _owner(endpoint: str, contract_address: ChecksumAddress, abi: str, account: 
                 return "OK"
             else:
                 print(f"FAILED\nThe NFT doesn't belong to address: {account}")
-                return f"FAILED\nThe NFT doesn't belong to address: {account}"
+                return f"FAILED - The NFT doesn't belong to address"
         except Exception:
             print("FAILED!\nIssue with checking ownership")
-            return "FAILED!\nIssue with checking ownership"
+            return "FAILED - Issue with checking ownership"
 
 
 def _balance(endpoint, address):
