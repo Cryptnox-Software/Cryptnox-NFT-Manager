@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "NFT Card Manager"
-!define PRODUCT_VERSION "1.2.0"
+!define PRODUCT_VERSION "1.2.1"
 !define PRODUCT_PUBLISHER "Cryptnox SA"
 !define PRODUCT_WEB_SITE "https://cryptnox.ch"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\NFT Card Manager.exe"
@@ -62,6 +62,7 @@ Section "MainSection" SEC01
   File "dist\NFT Card Manager\api-ms-win-core-datetime-l1-1-0.dll"
   File "dist\NFT Card Manager\api-ms-win-core-debug-l1-1-0.dll"
   File "dist\NFT Card Manager\api-ms-win-core-errorhandling-l1-1-0.dll"
+  File "dist\NFT Card Manager\api-ms-win-core-fibers-l1-1-0.dll"
   File "dist\NFT Card Manager\api-ms-win-core-file-l1-1-0.dll"
   File "dist\NFT Card Manager\api-ms-win-core-file-l1-2-0.dll"
   File "dist\NFT Card Manager\api-ms-win-core-file-l2-1-0.dll"
@@ -2552,6 +2553,7 @@ Section Uninstall
   Delete "$INSTDIR\api-ms-win-core-file-l2-1-0.dll"
   Delete "$INSTDIR\api-ms-win-core-file-l1-2-0.dll"
   Delete "$INSTDIR\api-ms-win-core-file-l1-1-0.dll"
+  Delete "$INSTDIR\api-ms-win-core-fibers-l1-1-0.dll"
   Delete "$INSTDIR\api-ms-win-core-errorhandling-l1-1-0.dll"
   Delete "$INSTDIR\api-ms-win-core-debug-l1-1-0.dll"
   Delete "$INSTDIR\api-ms-win-core-datetime-l1-1-0.dll"
