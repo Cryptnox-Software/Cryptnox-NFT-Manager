@@ -183,7 +183,7 @@ class Panel(wx.Panel):
         text = wx.StaticText(self,label='ABI')
         text.SetFont(font)
         row_sizer.Add(text,1,wx.ALL,border=10)
-        self.ABI_chooser = ABIChooser(self,choices=self.ABI_modes)
+        self.ABI_chooser = wx.ListBox(self,choices=self.ABI_modes)
         self.ABI_chooser.SetStringSelection(self.ABI_modes[0])
         self.ABI_chooser.Bind(wx.EVT_LISTBOX,self.ABI_chosen)
         row_sizer.Add(self.ABI_chooser,1,wx.ALL,border=10)
@@ -285,6 +285,8 @@ class Panel(wx.Panel):
             self.Layout()
             self.ABI_chooser.SetStringSelection('Automatic')
             self.url_field.SetValue('')
+            self.col_sizer_2.Clear(1)
+            self.col_sizer_2.AddSpacer(300)
 
         
         
@@ -758,18 +760,6 @@ class Panel(wx.Panel):
     def checksum_address(self,public_key: str) -> str:
         return Web3.toChecksumAddress(self.address(public_key))
 
-class ABIChooser(wx.ListBox):
-
-    def __init__(self, *args, **kw):
-        super().__init__(*args, **kw)
-        self.normalAttr = []
-        self.normalAttr.append(wx.ListItemAttr())
-        grayAttr = wx.ListItemAttr()
-        grayAttr.SetBackgroundColour(wx.Colour(52,229,235,255))
-        self.normalAttr.append(grayAttr)
-    
-    def OnGetItemAttr(self, item):
-        return self.normalAttr[item % 2]
 
 class MessageBox(wx.Dialog):
     def __init__(self, parent, title, message):
