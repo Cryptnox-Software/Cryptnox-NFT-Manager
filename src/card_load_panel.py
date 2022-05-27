@@ -3,7 +3,6 @@ import wx
 import cryptnoxpy
 import gzip
 from bs4 import BeautifulSoup
-from pathlib import Path
 from nft_display import DownloadThread
 import filetype
 import tempfile
@@ -66,28 +65,15 @@ class CardLoadPanel(wx.Panel):
         }
 
         font = wx.Font(13, wx.DECORATIVE,wx.NORMAL, wx.NORMAL)
-        top_sizer = wx.BoxSizer(wx.VERTICAL)
-
-        #Cryptnox logo on top
-        path = Path(__file__).parent.joinpath("cryptnox_transparent.png").absolute()
-        img = wx.Image(str(path),wx.BITMAP_TYPE_PNG)
-        img_size = (250,250)
-        img = img.Scale(int(img_size[0]),int(img_size[1]),wx.IMAGE_QUALITY_HIGH)
-        img = img.ConvertToBitmap()
-        image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
-        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        row_sizer.Add(image,1,wx.ALL)
-        top_sizer.Add(row_sizer,1,wx.EXPAND)
 
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        top_sizer.Add(main_sizer,1,wx.ALL)
         col_sizer = wx.BoxSizer(wx.VERTICAL)
         main_sizer.Add(col_sizer,1,wx.ALIGN_LEFT)
         self.col_sizer_2 = wx.BoxSizer(wx.VERTICAL)
         self.col_sizer_2.AddSpacer(300)
         self.preview_text = wx.StaticText(self,label="")
         self.preview_text.SetFont(font)
-        self.col_sizer_2.Add(self.preview_text,0,wx.CENTER,0)
+        # self.col_sizer_2.Add(self.preview_text,0,wx.CENTER,0)
         main_sizer.Add(self.col_sizer_2,1,wx.RESERVE_SPACE_EVEN_IF_HIDDEN)
 
         
@@ -244,7 +230,7 @@ class CardLoadPanel(wx.Panel):
         col_sizer.Add(row_sizer,1,wx.EXPAND)
 
 
-        self.SetSizerAndFit(top_sizer)
+        self.SetSizerAndFit(main_sizer)
 
         for x in range(5,9):
             field = self.Parent.FindWindowById(x)
