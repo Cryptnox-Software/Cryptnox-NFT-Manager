@@ -77,7 +77,6 @@ class CardLoadPanel(wx.Panel):
         main_sizer.Add(self.col_sizer_2,1,wx.RESERVE_SPACE_EVEN_IF_HIDDEN)
 
         
-
         for x in range(0,4):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
             text = wx.StaticText(self,label=self.columns[x])
@@ -510,6 +509,7 @@ class CardLoadPanel(wx.Panel):
     def fetch_ABI(self,url,contract_address,api_key):
         try:
             response = requests.get(url+f'&address={contract_address}'+f'&apikey={api_key}')
+            print(url+f'&address={contract_address}'+f'&apikey={api_key}')
             resp = response.json()['result']            
             print(response.status_code)
             if response.status_code >= 400 or 'Invalid' in resp or 'verified' in resp:
@@ -645,7 +645,7 @@ class CardLoadPanel(wx.Panel):
             card = self.get_card()
             puk = self.ask(message='Please input your PUK to reset:')
             if puk:
-                confirm = self.confirm(message='This will reset the card, are you sure ?')
+                confirm = utils.confirm(message='This will reset the card, are you sure ?')
                 if confirm == 5100:
                     card.reset(puk)
                     wx.MessageBox(f"Card has been reset.", "Info" ,wx.OK | wx.ICON_INFORMATION)
@@ -662,11 +662,6 @@ class CardLoadPanel(wx.Panel):
         dlg.Destroy()
         return result
 
-    def confirm(parent=None, message=''):
-        dlg = wx.MessageDialog(parent,message,caption='Confirm card reset', style=wx.OK | wx.CANCEL)
-        result = dlg.ShowModal()
-        dlg.Destroy()
-        return result
 
     def metedata_changed(self,event):
         v = self.Parent.FindWindowById(8).GetValue()

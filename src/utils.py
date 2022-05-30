@@ -7,6 +7,8 @@ from tabulate import tabulate
 from web3 import Web3
 from typing import NewType
 import json
+import wx
+import sha3 as keccak
 
 HexStr = NewType('HexStr', str)
 HexAddress = NewType('HexAddress', HexStr)
@@ -106,3 +108,22 @@ def _url(metadata) -> None:
                 except (KeyError, IndexError):
                     print("Can't find image")
                     return "Can't find image"
+
+def confirm(parent=None, message=''):
+    dlg = wx.MessageDialog(parent,message,caption='Action confirmation', style=wx.OK | wx.CANCEL)
+    result = dlg.ShowModal()
+    dlg.Destroy()
+    return result
+
+def format_checksum_address(addr):
+    # Format an ETH address with checksum (without 0x)
+    addr = addr.lower()
+    addr_sha3hash = keccak.keccak_256((addr.encode("ascii"))).digest().hex()
+    cs_address = ""
+    for idx, ci in enumerate(addr):
+        if ci in "abcdef":
+            cs_address += ci.upper() if int(addr_sha3hash[idx], 16) >= 8 else ci
+            continue
+        cs_address += ci
+    return cs_address
+
