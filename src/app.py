@@ -11,11 +11,11 @@ class NFT_CardManager_Frame(wx.Frame):
         self.SetForegroundColour('white')
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        main_sizer.Add(LogoTabsPanel(self,1),1,wx.ALIGN_CENTER_HORIZONTAL)        
-        main_sizer.Add(CardLoadPanel(self,1),1,wx.ALIGN_CENTER_HORIZONTAL)
-        main_sizer.Add(WalletConnectPanel(self,1),1,wx.ALIGN_CENTER_HORIZONTAL)
+        main_sizer.Add(LogoTabsPanel(self,-1),0,wx.ALIGN_CENTER_HORIZONTAL)
+        main_sizer.Add(CardLoadPanel(self,-1),0,wx.ALIGN_CENTER_HORIZONTAL)
+        main_sizer.Add(WalletConnectPanel(self,-1),0,wx.ALIGN_CENTER_HORIZONTAL)
 
-
+        self.GetChildren()[2].Hide()
         self.SetSizerAndFit(main_sizer)
         self.Show(1)
 
@@ -38,7 +38,8 @@ class NFT_CardManager_App(wx.App):
         self.locale = wx.Locale(wx.LANGUAGE_ENGLISH)
         frame_position = (round((wx.DisplaySize()[0]/2))-600,round((wx.DisplaySize()[1]/2))-525)
         frame_size = (1200,1050)
-        self.frame = NFT_CardManager_Frame(None, 1, "NFT CARD MANAGER",pos=frame_position,size=frame_size)
+        self.frame = NFT_CardManager_Frame(None, -1, "NFT CARD MANAGER",pos=frame_position)
+        print(self.frame.GetSize())
         self.MainLoop()
 
 

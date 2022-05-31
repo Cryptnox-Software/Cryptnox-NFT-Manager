@@ -21,12 +21,12 @@ class LogoTabsPanel(wx.Panel):
         img = img.ConvertToBitmap()
         image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
 
-        top_sizer.Add(image,1,wx.CENTER)
+        top_sizer.Add(image,0,wx.CENTER)
 
-        self.CardLoadTab = wx.Button(self,1,label='Initialize NFT card',size=(150,50))
+        self.CardLoadTab = wx.Button(self,21,label='Initialize NFT card',size=(150,30))
         self.CardLoadTab.SetFont(font)
         self.CardLoadTab.Bind(wx.EVT_BUTTON,self.GetParent().CardLoadTabPressed)
-        self.WalletConnectTab = wx.Button(self,2,label='Wallet Connect',size=(150,50))
+        self.WalletConnectTab = wx.Button(self,22,label='Wallet Connect',size=(150,30))
         self.WalletConnectTab.SetFont(font)
         self.WalletConnectTab.Bind(wx.EVT_BUTTON,self.GetParent().WalletConnectTabPressed)
 
@@ -35,6 +35,6 @@ class LogoTabsPanel(wx.Panel):
         row_sizer.Add(self.WalletConnectTab,1,wx.ALL,border=10)
         
         top_sizer.Add(row_sizer,0,wx.EXPAND)
-        top_sizer.AddSpacer(50)
+        top_sizer.AddSpacer(25)
         
         self.SetSizerAndFit(top_sizer)
