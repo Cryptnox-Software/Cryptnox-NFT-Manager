@@ -645,7 +645,7 @@ class CardLoadPanel(wx.Panel):
     def reset_card(self,event):
         try:
             card = self.get_card()
-            puk = self.ask(message='Please input your PUK to reset:')
+            puk = utils.ask(message='Please input your PUK to reset:')
             if puk:
                 confirm = utils.confirm(message='This will reset the card, are you sure ?')
                 if confirm == 5100:
@@ -656,13 +656,6 @@ class CardLoadPanel(wx.Panel):
         except Exception as e:
             wx.MessageBox(f"Error resetting card:\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_INFORMATION)
             return
-
-    def ask(parent=None, message=''):
-        dlg = wx.TextEntryDialog(parent, message)
-        dlg.ShowModal()
-        result = dlg.GetValue()
-        dlg.Destroy()
-        return result
 
 
     def metedata_changed(self,event):
