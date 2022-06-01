@@ -12,11 +12,18 @@ import wx
 import sha3 as keccak
 import hashlib
 from ECP256k1 import ECPoint,inverse_mod
+from decimal import DefaultContext, Decimal
 
 HexStr = NewType('HexStr', str)
 HexAddress = NewType('HexAddress', HexStr)
 ChecksumAddress = NewType('ChecksumAddress', HexAddress)
 
+USER_SCREEN = (
+            "\n>> !!!  Once approved, check on your device screen to confirm the signature  !!! <<"
+        )
+DECIMALS_FUNCTION = "313ce567"
+ETH_DECIMALS = 18    
+TRANSFERT_FUNCTION = "a9059cbb"
 
 def _private_key_check(card: cryptnoxpy.Card, public_key: bytes):
         print("Checking private key on the card...")
@@ -186,3 +193,111 @@ def public_key_recover(hash_val, r_sig, s_sig, parity=0):
     qpub = inverse_mod(r_sig, curve_order) * r_point.dual_mult(-hash_val % curve_order, s_sig)
     # Uncompressed format 04 X Y
     return qpub.encode_output(False)
+
+def balance_string(amount, decimshift=0):
+    utils_decimal_ctx = DefaultContext.copy()
+    POINT_CHAR = "."
+    ZERO_CHAR = "0"
+    """Convert integer shifted by decimshift decimals units
+    into a human float string.
+    """
+    if not isinstance(amount, int):
+        raise ValueError("amount arg must be int")
+    if decimshift < 0:
+        raise ValueError("decimshift must be postive or null")
+    num = utils_decimal_ctx.scaleb(Decimal(amount, utils_decimal_ctx), -decimshift)
+    if num.is_zero():
+        return ZERO_CHAR
+    bal_res = f"{num:.{decimshift}f}"
+    if len(bal_res) > 1 and POINT_CHAR in bal_res[:-1]:
+        bal_res = bal_res.rstrip(ZERO_CHAR)
+    if bal_res[-1] == POINT_CHAR:
+        bal_res = bal_res[:-1]
+    return bal_res
+
+def add_signature(self, signature_der):
+        """Add a DER signature into the built transaction."""
+        # Signature decoding
+        lenr = int(signature_der[3])
+        lens = int(signature_der[5 + lenr])
+        r = int.from_bytes(signature_der[4 : lenr + 4], "big")
+        s = int.from_bytes(signature_der[lenr + 6 : lenr + 6 + lens], "big")
+        # Parity recovery
+        i = 35
+        h = int.from_bytes(self.datahash, "big")
+        if public_key_recover(h, r, s, i) != self.pubkey:
+            i += 1
+        # Signature encoding
+        v = int2bytearray(2 * self.chainID + i)
+        r = int2bytearray(r)
+        s = int2bytearray(s)
+        tx_final = rlp_encode(
+            [
+                self.nonce,
+                self.gasprice,
+                self.startgas,
+                self.to,
+                self.value,
+                self.data,
+                v,
+                r,
+                s,
+            ]
+        )
+        return tx_final.hex()
+
+def add_vrs(self, vrs):
+        # v from Ledger hardware device is only the 8 bits LSB
+        v_high = self.chainID >> 7
+        v = int2bytearray(256 * v_high + vrs[0])
+        r = int2bytearray(vrs[1])
+        s = int2bytearray(vrs[2])
+        tx_final = rlp_encode(
+            [
+                self.nonce,
+                self.gasprice,
+                self.startgas,
+                self.to,
+                self.value,
+                self.data,
+                v,
+                r,
+                s,
+            ]
+        )
+        return tx_final.hex()
+
+def rlp_encode(input_data):
+    if isinstance(input_data, int):
+        if input_data < 0:
+            raise ValueError("RLP encoding error : integer must be positive or null")
+        return rlp_encode(to_binary(input_data))
+    if isinstance(input_data, bytearray):
+        if len(input_data) == 1 and input_data[0] == 0:
+            return bytearray(b"\x80")
+        if len(input_data) == 1 and input_data[0] < 0x80:
+            return input_data
+        return encode_length(len(input_data), 0x80) + input_data
+    if isinstance(input_data, list):
+        output = bytearray([])
+        for item in input_data:
+            output += rlp_encode(item)
+        return encode_length(len(output), 0xC0) + output
+    raise ValueError("Bad input_data type : int, list or bytearray required")
+
+def encode_length(Lon, offset):
+    if Lon < 56:
+        return bytearray([Lon + offset])
+    BLon = to_binary(Lon)
+    return bytearray([len(BLon) + offset + 55]) + BLon
+
+def to_binary(x):
+    if x == 0:
+        return bytearray([])
+    return to_binary(int(x // 256)) + bytearray([x % 256])
+
+def int2bytearray(i):
+    barr = (i).to_bytes(32, byteorder="big")
+    while barr[0] == 0 and len(barr) > 1:
+        barr = barr[1:]
+    return bytearray(barr)
