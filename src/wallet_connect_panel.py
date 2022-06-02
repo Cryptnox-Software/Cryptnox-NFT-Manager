@@ -29,14 +29,10 @@ class WalletConnectPanel(wx.Panel):
                 },
             'MATIC':
                 {
-                    'Mainnet':1,
-                    'Ropsten':3,
-                    'Rinkeby':4,
-                    'Goerli':5,
-                    'Kovan':42
+                    'Mainnet':137,
+                    'Ropsten':80001
                 }
                          }
-        self.account_types = ['Standard','ERC20','Walletconnect']
         self.wc_timer = None
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -57,15 +53,6 @@ class WalletConnectPanel(wx.Panel):
         row_sizer.Add(text,1,wx.ALL,border=5) 
         self.network_choice = wx.Choice(self,choices=[])            
         row_sizer.Add(self.network_choice,1,wx.ALL,border=5)
-
-        main_sizer.Add(row_sizer,1,wx.EXPAND)
-
-        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='Account type')
-        text.SetFont(font)
-        row_sizer.Add(text,1,wx.ALL,border=5)
-        field = wx.Choice(self,choices=self.account_types)            
-        row_sizer.Add(field,1,wx.ALL,border=5)
 
         main_sizer.Add(row_sizer,1,wx.EXPAND)
         
@@ -108,6 +95,8 @@ class WalletConnectPanel(wx.Panel):
         # sign(keccak256("\x19Ethereum Signed Message:\n" + len(message) + message)))
         data_bin = bytes.fromhex(data_hex[2:])
         msg_header = MESSAGE_HEADER + str(len(data_bin)).encode("ascii")
+        print(f'SigningDataHex: {data_hex}')
+        print(type(data_hex))
         sign_request = (
             "WalletConnect signature request :\n\n"
             f"- Data to sign (hex) :\n"
@@ -126,8 +115,8 @@ class WalletConnectPanel(wx.Panel):
             print(hash_sign)
             der_signature = self.card.sign(hash_sign,pin=self.pin)
             print(der_signature)
-            print(self.card.get_public_key().encode('UTF-8'))
-            return encode_datasign(hash_sign, der_signature,self.card.get_public_key().encode('UTF-8'))
+            print(self.card.get_public_key(hexed=False))
+            return encode_datasign(hash_sign, der_signature,self.card.get_public_key(hexed=False))
 
     def get_messages(self):
         print(f'Getting messages')
@@ -202,17 +191,17 @@ class WalletConnectPanel(wx.Panel):
         if gas_price != 0:
             gas_price = int(gas_price, 16)
         else:
-            gas_price = self.eth.api.get_gasprice()
+            gas_price = self.api.get_gasprice()
         gas_limit = txdata.get("gas", GAZ_LIMIT_ERC_20_TX)
         if gas_limit != GAZ_LIMIT_ERC_20_TX:
             gas_limit = int(gas_limit, 16)
         request_message = (
             "WalletConnect transaction request :\n\n"
             f" To    :  0x{to_addr}\n"
-            f" Value :  {balance_string(value , self.eth.decimals)} {self.coin}\n"
+            f" Value :  {balance_string(value , self.decimals)} {self.blockchain_choice.GetStringSelection()}\n"
             f" Gas price  : {balance_string(gas_price, GWEI_DECIMALS)} Gwei\n"
             f" Gas limit  : {gas_limit}\n"
-            f"Max fee cost: {balance_string(gas_limit*gas_price, self.eth.decimals)} {self.coin}\n"
+            f"Max fee cost: {balance_string(gas_limit*gas_price, self.decimals)} {self.blockchain_choice.GetStringSelection()}\n"
         )
         request_message += USER_SCREEN
         if confirm(self,request_message) == 5100:
@@ -277,19 +266,6 @@ class WalletConnectPanel(wx.Panel):
         if data is None:
             data = bytearray(b"")
         tx_bin, hash_to_sign = self.prepare(account, amount, gazprice, ethgazlimit, data)
-        if self.current_device.has_screen:
-            if self.ERC20 and self.ledger_tokens_compat:
-                # Token known by Ledger ?
-                ledger_info = self.ledger_tokens.get(self.eth.ERC20)
-                if ledger_info:
-                    # Known token : provide the trusted info to the device
-                    name = ledger_info["ticker"]
-                    data_sig = ledger_info["signature"]
-                    self.card.register_token(
-                        name, self.ERC20[2:], self.decimals, self.chainID, data_sig
-                    )
-            vrs = self.card.sign(tx_bin)
-            return add_vrs(vrs)
         tx_signature = self.card.sign(hash_to_sign)
         return add_signature(tx_signature)
 
@@ -310,12 +286,20 @@ class WalletConnectPanel(wx.Panel):
         self.network = self.network_choice.GetStringSelection().lower().strip()
         print(self.network)
         self.chainID = self.chain_ids[self.blockchain_choice.GetStringSelection()][self.network_choice.GetStringSelection()]
-        if self.network == 'mainnet':
-            rpc_endpoint = "https://rpc.ankr.com/eth/"
-            explorer = "https://etherscan.io/address/0x"
+        if self.blockchain_choice.GetStringSelection() == 'ETH':
+            if self.network == 'mainnet':
+                rpc_endpoint = f"https://rpc.ankr.com/eth/"
+                self.explorer = "https://etherscan.io/address/0x"
+            else:
+                rpc_endpoint = f"https://{self.network}.infura.io/v3/{INFURA_KEY}"
+                self.explorer = f"https://{self.network}.etherscan.io/address/0x"
         else:
-            rpc_endpoint = f"https://{self.network}.infura.io/v3/{INFURA_KEY}"
-            explorer = f"https://{self.network}.etherscan.io/address/0x"
+            if self.network == 'mainnet':
+                rpc_endpoint = "https://rpc.ankr.com/polygon/"
+                self.explorer = "https://polygonscan.com/address/0x"
+            else:
+                rpc_endpoint = "https://matic-mumbai.chainstacklabs.com/"
+                self.explorer = "https://mumbai.polygonscan.com/address/0x"
         WALLETCONNECT_PROJID = "5af34a5c60298f270f4281f8bae67f33"
         WALLET_DESCR = {
             "description": "A universal blockchain wallet for cryptos",
@@ -325,10 +309,14 @@ class WalletConnectPanel(wx.Panel):
         }
         wc_uri = self.url_field.GetValue().strip()
         try:
-            self.pin = ask(message='Please input your card PIN:')
+            pin_result = ask(message='Please input your card PIN:')
+            if pin_result != '':
+                self.pin = pin_result
+            else:
+                return
             self.card = cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
             self.card.verify_pin(self.pin)
-            pubkey = self.card.get_public_key().encode('UTF-8')
+            pubkey = self.card.get_public_key(hexed=False)
             print(rpc_endpoint)
             self.api = Web3Client(rpc_endpoint, "Uniblow/1")
         except cryptnoxpy.exceptions.PinException:
