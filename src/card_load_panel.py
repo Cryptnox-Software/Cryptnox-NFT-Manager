@@ -71,9 +71,6 @@ class CardLoadPanel(wx.Panel):
         main_sizer.Add(col_sizer,1,wx.ALIGN_LEFT)
         self.col_sizer_2 = wx.BoxSizer(wx.VERTICAL)
         self.col_sizer_2.AddSpacer(300)
-        # self.preview_text = wx.StaticText(self,label="")
-        # self.preview_text.SetFont(font)
-        # self.col_sizer_2.Add(self.preview_text,0,wx.CENTER,0)
         main_sizer.Add(self.col_sizer_2,1,wx.EXPAND)
 
         
@@ -244,9 +241,6 @@ class CardLoadPanel(wx.Panel):
         pub.subscribe(self.downloaded, "downloaded")
 
         self.Parent.FindWindowById(8).Bind(wx.EVT_TEXT,self.metedata_changed)
-
-        for x in range(1,100):
-            print(self.FindWindowById(x).__str__())
 
     def clear_fields(self,event):
         for i in range(1,len(self.columns)+1):
