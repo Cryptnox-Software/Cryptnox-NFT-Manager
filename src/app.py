@@ -36,9 +36,10 @@ class NFT_CardManager_App(wx.App):
     def __init__(self):
         super(NFT_CardManager_App, self).__init__()
         self.locale = wx.Locale(wx.LANGUAGE_ENGLISH)
-        frame_position = (round((wx.DisplaySize()[0]/2))-600,round((wx.DisplaySize()[1]/2))-525)
-        frame_size = (1200,1050)
-        self.frame = NFT_CardManager_Frame(None, -1, "NFT CARD MANAGER",pos=frame_position)
+        print(wx.DisplaySize())
+        self.frame = NFT_CardManager_Frame(None, -1, "NFT CARD MANAGER")
+        frame_position = ((wx.DisplaySize()[0]-self.frame.GetSize()[0])/2,(wx.DisplaySize()[1]-self.frame.GetSize()[1])/2)
+        self.frame.SetPosition(frame_position)
         print(self.frame.GetSize())
         self.MainLoop()
 

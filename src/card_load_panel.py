@@ -21,6 +21,7 @@ class CardLoadPanel(wx.Panel):
 
     def __init__(self,parent,id):
         super(CardLoadPanel,self).__init__(parent,id)
+        wx.Dialog.EnableLayoutAdaptation(True)
         self.mode = 'URL'
         self.field_placeholders = {
             'URL':'<Please input URL above>',
@@ -70,7 +71,6 @@ class CardLoadPanel(wx.Panel):
         col_sizer = wx.BoxSizer(wx.VERTICAL)
         main_sizer.Add(col_sizer,1,wx.ALIGN_LEFT)
         self.col_sizer_2 = wx.BoxSizer(wx.VERTICAL)
-        self.col_sizer_2.AddSpacer(300)
         main_sizer.Add(self.col_sizer_2,1,wx.EXPAND)
 
         
@@ -96,7 +96,7 @@ class CardLoadPanel(wx.Panel):
         # row_sizer.AddSpacer(100)
         row_sizer.Add(self.clear_fields_btn,1,wx.ALL,border=5)
 
-        col_sizer.Add(row_sizer,0,wx.EXPAND)
+        self.col_sizer_2.Add(row_sizer,0,wx.EXPAND)
 
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
         rb1 = wx.RadioButton(self,label='URL',style=wx.RB_GROUP)
@@ -105,8 +105,9 @@ class CardLoadPanel(wx.Panel):
         row_sizer.Add(rb1,1,wx.ALL,border=15)
         row_sizer.Add(rb2,1,wx.ALL,border=15)
         row_sizer.Add(rb3,1,wx.ALL,border=15)
-        col_sizer.Add(row_sizer,0,wx.EXPAND)
         self.Bind(wx.EVT_RADIOBUTTON, self.on_radio_choice)
+
+        self.col_sizer_2.Add(row_sizer,0,wx.EXPAND)
 
     
         #File picker field
@@ -117,7 +118,8 @@ class CardLoadPanel(wx.Panel):
         self.file_picker = wx.FilePickerCtrl(self)
         self.file_picker.Bind(wx.EVT_FILEPICKER_CHANGED,self.file_picked)
         self.file_picker_sizer.Add(self.file_picker,1,wx.ALL,border=5)
-        col_sizer.Add(self.file_picker_sizer,0,wx.EXPAND)
+
+        self.col_sizer_2.Add(self.file_picker_sizer,0,wx.EXPAND)
 
         self.file_picker_sizer.Hide(0)
         self.file_picker_sizer.Hide(1)
@@ -134,7 +136,8 @@ class CardLoadPanel(wx.Panel):
         self.get_fields.SetLabel('Get fields')
         self.get_fields.Bind(wx.EVT_BUTTON,self.get_fields_from_url)
         self.url_input_sizer.Add(self.get_fields,0,wx.TOP | wx.RIGHT,border=5)
-        col_sizer.Add(self.url_input_sizer,0,wx.EXPAND)
+
+        self.col_sizer_2.Add(self.url_input_sizer,0,wx.EXPAND)
 
         #NFT fields
         for x in range(4,len(self.columns)):
@@ -149,9 +152,10 @@ class CardLoadPanel(wx.Panel):
                 row_sizer.Add(text,1,wx.ALL,border=5)
             field = wx.TextCtrl(self,x+1)            
             row_sizer.Add(field,1,wx.ALL,border=5)
-            col_sizer.Add(row_sizer,0,wx.EXPAND)
+            self.col_sizer_2.Add(row_sizer,0,wx.EXPAND)
         
-        
+        self.preview_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.col_sizer_2.Add(self.preview_sizer)
 
         #NFC Sign
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -164,7 +168,7 @@ class CardLoadPanel(wx.Panel):
         
         #ABI
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='ABI')
+        text = wx.StaticText(self,label='ABI Mode')
         text.SetFont(font)
         row_sizer.Add(text,1,wx.ALL,border=5)
         self.ABI_chooser = wx.ListBox(self,choices=self.ABI_modes)
@@ -175,7 +179,7 @@ class CardLoadPanel(wx.Panel):
 
         #manual ABI
         self.manual_abi_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='Manual ABI')
+        text = wx.StaticText(self,label='ABI Value')
         text.SetFont(font)
         self.manual_abi_sizer.Add(text,1,wx.ALL,border=5)
         self.manual_ABI = wx.TextCtrl(self)            
@@ -192,6 +196,7 @@ class CardLoadPanel(wx.Panel):
         col_sizer.Add(row_sizer,0,wx.EXPAND)
 
         
+        col_sizer.AddSpacer(100)
 
         #Reset card and Execute load buttons
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -269,8 +274,7 @@ class CardLoadPanel(wx.Panel):
             self.Layout()
             self.ABI_chooser.SetStringSelection('Automatic')
             self.url_field.SetValue('')
-            self.col_sizer_2.Clear(1)
-            self.col_sizer_2.AddSpacer(300)
+            self.preview_sizer.Clear(1)
 
         
         
@@ -463,13 +467,14 @@ class CardLoadPanel(wx.Panel):
         metadata = False
         try:
             nftport_url = f"https://api.nftport.xyz/v0/nfts/{contract_address}/{token_id}"
+            print(nftport_url)
             querystring = {"chain":endpoint.lower(),"refresh_metadata":"false"}
             headers = {
                 'Content-Type': "application/json",
                 'Authorization': self.metadata_apikeys['nftport']
             }
             nftport_response = requests.request("GET",nftport_url,headers=headers,params=querystring)
-            print(nftport_response)
+            print(nftport_response.text)
             metadata = nftport_response.json()['nft']['metadata']
             self.Parent.FindWindowById(8).SetValue(str(metadata))
         except Exception as e:
@@ -489,7 +494,7 @@ class CardLoadPanel(wx.Panel):
             print(f'Exception fetching url: {e}')
             wx.MessageBox(f"Metadata not found in database, please continue input manually.\n\n", "Info" ,wx.OK | wx.ICON_WARNING)
             self.Parent.FindWindowById(8).Enable()
-            self.Parent.FindWindowById(8).SetEditable(True)            
+            self.Parent.FindWindowById(8).SetEditable(True)   
             return
         divs = soup.find_all("div",{'class':'Blockreact__Block-sc-1xf18x6-0 elqhCm'})
         spans = divs[1].find_all("span")
@@ -687,29 +692,25 @@ class CardLoadPanel(wx.Panel):
             print(f'Exception in downloaded: {e}')
 
     def show_nft(self,nft_type,data):
-        # self.Parent.SetSize(1200,1050)
-        self.col_sizer_2.Clear(1)
-        self.col_sizer_2.AddSpacer(200)
-        # self.col_sizer_2.Add(self.preview_text,0,wx.CENTER,0)
-        # self.preview_text.SetLabel('NFT Preview')
+        self.preview_sizer.Clear(1)
         if nft_type == 'gif':
             ft = tempfile.NamedTemporaryFile(delete=False, suffix=".gif")
             ft.write(data)
             ft.flush()
             ft.close()
             self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,300), size=(500,500))
-            print(self.col_sizer_2.GetSize())
+            # print(self.col_sizer_2.GetSize())
             self.anim.Bind(media.EVT_MEDIA_LOADED, self.on_media_loaded)
             self.anim.Bind(media.EVT_MEDIA_FINISHED,self.on_media_finished)
             self.anim.Load(ft.name)
-            self.col_sizer_2.Add(self.anim, 0, wx.CENTER, 0)
+            self.preview_sizer.Add(self.anim, 0, wx.CENTER, 0)
             self.Layout()
         else:
             print('Not gif')
             img = wx.Image(io.BytesIO(data)).ConvertToBitmap()
             img = self.scale_bitmap(img, 500, img.GetHeight())
             nft = wx.StaticBitmap(self, -1, img, (0,500))
-            self.col_sizer_2.Add(nft,0,wx.CENTER,0)
+            self.preview_sizer.Add(nft,0,wx.CENTER,0)
             self.Layout()
 
     def scale_bitmap(self,bitmap, width, height):
@@ -737,12 +738,11 @@ class CardLoadPanel(wx.Panel):
 class MessageBox(wx.Dialog):
     def __init__(self, parent, title, message):
         wx.Dialog.__init__(self, parent, title=title,size=(1000,600))
+        self.SetLayoutAdaptationMode(wx.DIALOG_ADAPTATION_MODE_ENABLED)
         print(message.split('\n'))
         height = 0
         for each in message.split('\n'):
             text = wx.TextCtrl(self, style=wx.TE_READONLY|wx.BORDER_NONE,pos=(30,height),size=(1000,23))
             text.SetValue(each)
-            # text.SetBackgroundColour(wx.SystemSettings.GetColour(4))
             height+=23
         self.ShowModal()
-        # self.Destroy()
