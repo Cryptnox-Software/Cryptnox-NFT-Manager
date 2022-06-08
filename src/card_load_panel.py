@@ -13,15 +13,16 @@ from eth_utils.curried import keccak
 from web3 import Web3
 import utils
 import json
+from wx.lib.scrolledpanel import ScrolledPanel
 
 
 
-
-class CardLoadPanel(wx.Panel):
+class CardLoadPanel(ScrolledPanel):
 
     def __init__(self,parent,id):
         super(CardLoadPanel,self).__init__(parent,id)
-        wx.Dialog.EnableLayoutAdaptation(True)
+        self.SetAutoLayout(1)
+        self.SetupScrolling()
         self.mode = 'URL'
         self.field_placeholders = {
             'URL':'<Please input URL above>',
@@ -65,7 +66,7 @@ class CardLoadPanel(wx.Panel):
             cryptnoxpy.SeedSource.DUAL: "Dual card",
         }
 
-        font = wx.Font(13, wx.DECORATIVE,wx.NORMAL, wx.NORMAL)
+        font = wx.Font(10, wx.DECORATIVE,wx.NORMAL, wx.NORMAL)
 
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
         col_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -737,12 +738,19 @@ class CardLoadPanel(wx.Panel):
 
 class MessageBox(wx.Dialog):
     def __init__(self, parent, title, message):
-        wx.Dialog.__init__(self, parent, title=title,size=(1000,600))
-        self.SetLayoutAdaptationMode(wx.DIALOG_ADAPTATION_MODE_ENABLED)
+        wx.Dialog.__init__(self, parent, title=title)
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+        window = wx.ScrolledWindow(self,-1,size=(600,600))
+        main_sizer.Add(window,1,wx.EXPAND)
         print(message.split('\n'))
         height = 0
         for each in message.split('\n'):
-            text = wx.TextCtrl(self, style=wx.TE_READONLY|wx.BORDER_NONE,pos=(30,height),size=(1000,23))
+            text = wx.TextCtrl(window, style=wx.TE_READONLY|wx.BORDER_NONE,pos=(30,height),size=(1000,23))
             text.SetValue(each)
+            # window.AddChild(text)
             height+=23
+        window.SetVirtualSize(600,height)
+        print(window.GetSize())
+        window.SetScrollRate(15,15)
+        self.SetSizerAndFit(main_sizer)
         self.ShowModal()

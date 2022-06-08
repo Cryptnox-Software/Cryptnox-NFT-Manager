@@ -18,6 +18,7 @@ class LogoTabsPanel(wx.Panel):
         img = wx.Image(str(path),wx.BITMAP_TYPE_PNG)
         img_size = (250,250)
         img = img.Scale(int(img_size[0]),int(img_size[1]),wx.IMAGE_QUALITY_HIGH)
+        img = img.GetSubImage(wx.Rect((225,200)))
         img = img.ConvertToBitmap()
         image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
 
