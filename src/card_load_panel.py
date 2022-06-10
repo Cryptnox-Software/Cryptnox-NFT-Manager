@@ -14,6 +14,7 @@ from web3 import Web3
 import utils
 import json
 from wx.lib.scrolledpanel import ScrolledPanel
+import time
 
 
 
@@ -21,8 +22,9 @@ class CardLoadPanel(ScrolledPanel):
 
     def __init__(self,parent,id):
         super(CardLoadPanel,self).__init__(parent,id)
-        self.SetAutoLayout(1)
-        self.SetupScrolling()
+        # self.SetAutoLayout(1)
+        # self.SetupScrolling()
+        field_proportions = 1
         self.mode = 'URL'
         self.field_placeholders = {
             'URL':'<Please input URL above>',
@@ -69,33 +71,84 @@ class CardLoadPanel(ScrolledPanel):
         font = wx.Font(10, wx.DECORATIVE,wx.NORMAL, wx.NORMAL)
 
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        main_sizer.AddSpacer(10)
         col_sizer = wx.BoxSizer(wx.VERTICAL)
-        main_sizer.Add(col_sizer,1,wx.ALIGN_LEFT)
+        main_sizer.Add(col_sizer,0,wx.ALIGN_LEFT)
         self.col_sizer_2 = wx.BoxSizer(wx.VERTICAL)
-        main_sizer.Add(self.col_sizer_2,1,wx.EXPAND)
+        main_sizer.Add(self.col_sizer_2,0,wx.EXPAND)
+        self.col_sizer_3 = wx.BoxSizer(wx.VERTICAL)
+        main_sizer.Add(self.col_sizer_3,0,wx.EXPAND)
 
         
+        '''
+        Column sizer 1 - Left
+        '''
+
+
         for x in range(0,4):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            text = wx.StaticText(self,label=self.columns[x])
+            text = wx.StaticText(self,label=self.columns[x],size=(100,16))
             text.SetFont(font)
-            row_sizer.Add(text,1,wx.ALL,border=5)
-            field = wx.TextCtrl(self,x+1)            
-            row_sizer.Add(field,1,wx.ALL,border=5)
+            row_sizer.Add(text,0,wx.ALL,border=5)
+            field = wx.TextCtrl(self,x+1,size=(238,23))      
+            row_sizer.Add(field,0,wx.ALL,border=5)
             col_sizer.Add(row_sizer,0,wx.EXPAND)
+
+        #NFC Sign
+        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        text = wx.StaticText(self,label='NFC sign',size=(100,16))
+        text.SetFont(font)
+        row_sizer.Add(text,0,wx.ALL,border=5)
+        self.NFC_choice = wx.CheckBox(self)
+        row_sizer.Add(self.NFC_choice,0,wx.ALL,border=5)
+        col_sizer.Add(row_sizer,0,wx.EXPAND)
+        
+        #ABI
+        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        text = wx.StaticText(self,label='ABI Mode',size=(100,16))
+        text.SetFont(font)
+        row_sizer.Add(text,0,wx.ALL,border=5)
+        self.ABI_chooser = wx.ListBox(self,choices=self.ABI_modes)
+        self.ABI_chooser.SetStringSelection(self.ABI_modes[0])
+        self.ABI_chooser.Bind(wx.EVT_LISTBOX,self.ABI_chosen)
+        row_sizer.Add(self.ABI_chooser,0,wx.ALL,border=5)
+        col_sizer.Add(row_sizer,0,wx.EXPAND)
+
+        #manual ABI
+        self.manual_abi_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        text = wx.StaticText(self,label='ABI Value',size=(100,16))
+        text.SetFont(font)
+        self.manual_abi_sizer.Add(text,0,wx.ALL,border=5)
+        self.manual_ABI = wx.TextCtrl(self,size=(238,23))            
+        self.manual_abi_sizer.Add(self.manual_ABI,0,wx.ALL,border=5)
+        col_sizer.Add(self.manual_abi_sizer,0,wx.EXPAND)
+
+        #Endpoint URLs
+        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        text = wx.StaticText(self,label='Endpoint',size=(100,16))
+        text.SetFont(font)
+        row_sizer.Add(text,0,wx.ALL,border=5)
+        self.endpoint_choice = wx.Choice(self,choices=[f'{key}: {value}' for key,value in self.endpoint_urls.items()])
+        row_sizer.Add(self.endpoint_choice,0,wx.ALL,border=5)
+        col_sizer.Add(row_sizer,0,wx.EXPAND)
+
+
+        '''
+        Column sizer 2 - Middle
+        '''
 
         #Input methods choice
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='Please choose NFT data input method below:')
+        text = wx.StaticText(self,label='Please choose NFT data input method below:',size=(250,16))
         text.SetFont(font)
-        row_sizer.Add(text,1,wx.ALL,border=5)
+        row_sizer.Add(text,0,wx.ALL,border=5)
 
         self.clear_fields_btn = wx.Button(self,-1,label='Reset all fields',size=(100,30))
         self.clear_fields_btn.SetFont(font)
         self.clear_fields_btn.SetBackgroundColour('gray')
         self.clear_fields_btn.Bind(wx.EVT_BUTTON,self.clear_fields)
         # row_sizer.AddSpacer(100)
-        row_sizer.Add(self.clear_fields_btn,1,wx.ALL,border=5)
+        row_sizer.Add(self.clear_fields_btn,0,wx.ALL,border=5)
 
         self.col_sizer_2.Add(row_sizer,0,wx.EXPAND)
 
@@ -103,136 +156,64 @@ class CardLoadPanel(ScrolledPanel):
         rb1 = wx.RadioButton(self,label='URL',style=wx.RB_GROUP)
         rb2 = wx.RadioButton(self,label='File')
         rb3 = wx.RadioButton(self,label='Manual')
-        row_sizer.Add(rb1,1,wx.ALL,border=15)
-        row_sizer.Add(rb2,1,wx.ALL,border=15)
-        row_sizer.Add(rb3,1,wx.ALL,border=15)
+
+        row_sizer.Add(rb1,0,wx.ALL,border=15)
+        row_sizer.Add(rb2,0,wx.ALL,border=15)
+        row_sizer.Add(rb3,0,wx.ALL,border=15)
+
         self.Bind(wx.EVT_RADIOBUTTON, self.on_radio_choice)
+
 
         self.col_sizer_2.Add(row_sizer,0,wx.EXPAND)
 
-    
+
+        #URL field
+        self.url_input_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        text = wx.StaticText(self,label='URL',size=(100,16))
+        text.SetFont(font)
+        self.url_input_sizer.Add(text,0,wx.ALL,border=5)
+        self.url_field = wx.TextCtrl(self,size=(158,23))
+
+        self.url_input_sizer.Add(self.url_field,0,wx.ALL,border=5)
+
+        self.get_fields = wx.Button(self,-1,size=(75,23))
+        self.get_fields.SetLabel('Get fields')
+        self.get_fields.Bind(wx.EVT_BUTTON,self.get_fields_from_url)
+
+        self.url_input_sizer.Add(self.get_fields,0,wx.TOP | wx.RIGHT,border=5)
+
+
+        self.col_sizer_2.Add(self.url_input_sizer,0,wx.EXPAND)
+
+
         #File picker field
         self.file_picker_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='File')
+        text = wx.StaticText(self,label='File',size=(100,16))
         text.SetFont(font)
-        self.file_picker_sizer.Add(text,1,wx.ALL,border=5)
-        self.file_picker = wx.FilePickerCtrl(self)
+        self.file_picker_sizer.Add(text,0,wx.ALL,border=5)
+        self.file_picker = wx.FilePickerCtrl(self,size=(238,23))
         self.file_picker.Bind(wx.EVT_FILEPICKER_CHANGED,self.file_picked)
-        self.file_picker_sizer.Add(self.file_picker,1,wx.ALL,border=5)
+        self.file_picker_sizer.Add(self.file_picker,0,wx.ALL,border=5)
 
         self.col_sizer_2.Add(self.file_picker_sizer,0,wx.EXPAND)
 
         self.file_picker_sizer.Hide(0)
         self.file_picker_sizer.Hide(1)
-        
-
-        #URL field
-        self.url_input_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='URL')
-        text.SetFont(font)
-        self.url_input_sizer.Add(text,1,wx.ALL,border=5)
-        self.url_field = wx.TextCtrl(self,size=(250,23))
-        self.url_input_sizer.Add(self.url_field,0,wx.ALL,border=5)
-        self.get_fields = wx.Button(self,-1,size=(80,22))
-        self.get_fields.SetLabel('Get fields')
-        self.get_fields.Bind(wx.EVT_BUTTON,self.get_fields_from_url)
-        self.url_input_sizer.Add(self.get_fields,0,wx.TOP | wx.RIGHT,border=5)
-
-        self.col_sizer_2.Add(self.url_input_sizer,0,wx.EXPAND)
 
         #NFT fields
         for x in range(4,len(self.columns)):
             row_sizer = wx.BoxSizer(wx.HORIZONTAL)
             if x == 7:
-                self.metedata_label = wx.StaticText(self,label=self.columns[x])
+                self.metedata_label = wx.StaticText(self,label=self.columns[x],size=(100,16))
                 self.metedata_label.SetFont(font)
-                row_sizer.Add(self.metedata_label,1,wx.ALL,border=5)
+                row_sizer.Add(self.metedata_label,0,wx.ALL,border=5)
             else:
-                text = wx.StaticText(self,label=self.columns[x])
+                text = wx.StaticText(self,label=self.columns[x],size=(100,16))
                 text.SetFont(font)
-                row_sizer.Add(text,1,wx.ALL,border=5)
-            field = wx.TextCtrl(self,x+1)            
-            row_sizer.Add(field,1,wx.ALL,border=5)
+                row_sizer.Add(text,0,wx.ALL,border=5)
+            field = wx.TextCtrl(self,x+1,size=(238,23))            
+            row_sizer.Add(field,0,wx.ALL,border=5)
             self.col_sizer_2.Add(row_sizer,0,wx.EXPAND)
-        
-        self.preview_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.col_sizer_2.Add(self.preview_sizer)
-
-        #NFC Sign
-        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='NFC sign')
-        text.SetFont(font)
-        row_sizer.Add(text,1,wx.ALL,border=5)
-        self.NFC_choice = wx.CheckBox(self)
-        row_sizer.Add(self.NFC_choice,1,wx.ALL,border=5)
-        col_sizer.Add(row_sizer,0,wx.EXPAND)
-        
-        #ABI
-        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='ABI Mode')
-        text.SetFont(font)
-        row_sizer.Add(text,1,wx.ALL,border=5)
-        self.ABI_chooser = wx.ListBox(self,choices=self.ABI_modes)
-        self.ABI_chooser.SetStringSelection(self.ABI_modes[0])
-        self.ABI_chooser.Bind(wx.EVT_LISTBOX,self.ABI_chosen)
-        row_sizer.Add(self.ABI_chooser,1,wx.ALL,border=5)
-        col_sizer.Add(row_sizer,0,wx.EXPAND)
-
-        #manual ABI
-        self.manual_abi_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='ABI Value')
-        text.SetFont(font)
-        self.manual_abi_sizer.Add(text,1,wx.ALL,border=5)
-        self.manual_ABI = wx.TextCtrl(self)            
-        self.manual_abi_sizer.Add(self.manual_ABI,1,wx.ALL,border=5)
-        col_sizer.Add(self.manual_abi_sizer,0,wx.EXPAND)
-
-        #Endpoint URLs
-        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        text = wx.StaticText(self,label='Endpoint')
-        text.SetFont(font)
-        row_sizer.Add(text,1,wx.ALL,border=5)
-        self.endpoint_choice = wx.Choice(self,choices=[f'{key}: {value}' for key,value in self.endpoint_urls.items()])
-        row_sizer.Add(self.endpoint_choice,1,wx.ALL,border=5)
-        col_sizer.Add(row_sizer,0,wx.EXPAND)
-
-        
-        col_sizer.AddSpacer(100)
-
-        #Reset card and Execute load buttons
-        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        left_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.reset_btn = wx.Button(self,11,size=(150,40))
-        self.reset_btn.SetFont(font)
-        self.reset_btn.SetLabel('Card reset')
-
-        self.reset_btn.Bind(wx.EVT_BUTTON,self.reset_card)
-
-        left_sizer.Add(self.reset_btn,0,wx.RIGHT,border=20)
-
-        self.info_btn = wx.Button(self,12,size=(150,40))
-        self.info_btn.SetFont(font)
-        self.info_btn.SetLabel('Card Info')
-
-        self.info_btn.Bind(wx.EVT_BUTTON,self.info_card)
-
-        left_sizer.Add(self.info_btn,0,wx.ALL,border=0)
-
-        self.execute_btn = wx.Button(self,13,size=(250,40))
-        self.execute_btn.SetFont(font)
-        self.execute_btn.SetLabel('Execute load')
-
-        self.execute_btn.Bind(wx.EVT_BUTTON,self.execute_load)
-
-        row_sizer.Add(left_sizer,1,wx.ALL,border=30)
-        row_sizer.Add(self.execute_btn,0,wx.ALL,border=30)
-
-        col_sizer.Add(row_sizer,0,wx.EXPAND)
-
-
-        self.SetSizerAndFit(main_sizer)
-        self.manual_abi_sizer.Hide(0)
-        self.manual_abi_sizer.Hide(1)
 
         for x in range(5,9):
             field = self.Parent.FindWindowById(x)
@@ -247,6 +228,26 @@ class CardLoadPanel(ScrolledPanel):
         pub.subscribe(self.downloaded, "downloaded")
 
         self.Parent.FindWindowById(8).Bind(wx.EVT_TEXT,self.metedata_changed)
+
+        '''
+        Colsizer 3 - Right
+        '''
+        nft_box = wx.StaticBox(self,-1,'NFT PREVIEW AREA')
+        self.nft_sizer = wx.StaticBoxSizer(nft_box,wx.VERTICAL)
+
+        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        row_sizer.AddSpacer(250)
+        self.nft_sizer.Add(row_sizer,0,wx.EXPAND)
+
+        self.nft_sizer.AddSpacer(250)
+        self.col_sizer_3.Add(self.nft_sizer,0,wx.EXPAND)
+
+        main_sizer.AddSpacer(10)
+        self.SetSizerAndFit(main_sizer)
+
+        self.manual_abi_sizer.Hide(0)
+        self.manual_abi_sizer.Hide(1)
+
 
     def clear_fields(self,event):
         for i in range(1,len(self.columns)+1):
@@ -275,15 +276,26 @@ class CardLoadPanel(ScrolledPanel):
             self.Layout()
             self.ABI_chooser.SetStringSelection('Automatic')
             self.url_field.SetValue('')
-            self.preview_sizer.Clear(1)
+            self.nft_sizer_reset()
 
+    
+    def nft_sizer_reset(self):
+        self.nft_sizer.Clear(1)
+        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        row_sizer.AddSpacer(250)
+        self.nft_sizer.Add(row_sizer,0,wx.EXPAND)
+        self.nft_sizer.AddSpacer(250)
         
-        
-    def info_card(self,event='',message=''):
+    def info_card(self,event='',message='',pin=''):
+        # wx.CallAfter(pub.sendMessage,"pause_check_card")
+        pub.sendMessage("pause_check_card")
         try:
             card = self.get_card()
+            if pin != '':
+                card.verify_pin(pin)
         except Exception as e:
             wx.MessageBox(f"Card or reader not found, please ensure device is connected.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         slots = []
         try:
@@ -329,9 +341,11 @@ class CardLoadPanel(ScrolledPanel):
             message+=f'\n{result}'
             # wx.MessageBox(message, "Info" ,wx.OK | wx.ICON_WARNING)
             MessageBox(self,'Card info',message)
+            wx.CallAfter(pub.sendMessage,"start_check_card")
         except Exception as e:
             print(f'Error getting card info: {e}')
             wx.MessageBox(f"Could not get info from card, please ensure card is initialized.", "Error" ,wx.OK | wx.ICON_WARNING)
+            wx.CallAfter(pub.sendMessage,"start_check_card")
 
         
 
@@ -353,6 +367,7 @@ class CardLoadPanel(ScrolledPanel):
             self.endpoint_choice.Disable()
             self.endpoint_choice.Clear()
             self.endpoint_choice.SetItems([f'{key}: {value}' for key,value in self.endpoint_urls.items()])
+            self.Layout()
         elif 'File' in choice:
             self.mode = 'File'
             self.url_input_sizer.Hide(0)
@@ -369,6 +384,7 @@ class CardLoadPanel(ScrolledPanel):
             self.endpoint_choice.Disable()
             self.endpoint_choice.Clear()
             self.endpoint_choice.SetItems([f'{key}: {value}' for key,value in self.endpoint_urls.items()])
+            self.Layout()
         else:
             self.mode = 'Manual'
             self.url_input_sizer.Hide(0)
@@ -387,7 +403,7 @@ class CardLoadPanel(ScrolledPanel):
             self.endpoint_choice.Enable()
         self.Parent.FindWindowById(3).SetValue('000000000')
         self.Parent.FindWindowById(4).SetValue('000000000000')
-        self.Layout()
+        # self.Layout()
 
     def ABI_chosen(self,event: wx.EVT_LISTBOX):
         if self.ABI_chooser.GetString(self.ABI_chooser.GetSelection()) == 'Manual':
@@ -530,6 +546,8 @@ class CardLoadPanel(ScrolledPanel):
         return resp
 
     def execute_load(self,event):
+        pub.sendMessage("pause_check_card")
+        time.sleep(0.5)
         unfilled_list = self.validate_fields()
         if len(unfilled_list) > 0:
             empty_fields = []
@@ -537,12 +555,14 @@ class CardLoadPanel(ScrolledPanel):
             for each in unfilled_list:
                 message+=(f'\n-{each}')
             wx.MessageBox(message, "Error" ,wx.OK | wx.ICON_WARNING)
+            wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         try:
             card = self.get_card()
         except Exception as e:
             print(f'Exception getting card object: {e}')
             wx.MessageBox(f"Card or reader not found, please ensure device is connected.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         l = ['','Name','Mail','PIN','PUK']
         data = {}
@@ -567,7 +587,7 @@ class CardLoadPanel(ScrolledPanel):
         slot_data.append(self.manual_ABI.GetValue())
         d = {}
         d['endpoint'] = self.endpoint_urls[self.endpoint_choice.GetStringSelection().split(':')[0]]
-        d['chain_id'] = self.chains[self.endpoint_choice.GetStringSelection().split(':')[0]]['id']
+        d['chain_id'] = int(self.chains[self.endpoint_choice.GetStringSelection().split(':')[0]]['id'])
         print(d['chain_id'])
         d['contract_address'] = Web3.toChecksumAddress(slot_data[1])
         d['token_id'] = slot_data[2]
@@ -589,37 +609,47 @@ class CardLoadPanel(ScrolledPanel):
         slots.append(slot_data[3])
         slots[0] = str(slots[0]).replace('\'','\"').replace('token_id','nft_id')
         slots[2] = str(slots[2]).replace('\'','\"')
+        print(slots[3])
         meta_str = str(slots[3]).replace('\'','\"')
+        # slots[3] = str(slots[3]).replace('\'','\"')
         meta = eval(meta_str)
         meta_url = meta['image_url'].split('/')
-        image_url = f'https://cloudflare-ipfs.com/ipfs/{meta_url[-2]}/{meta_url[-1]}'
+        image_url = f'https://opengateway.mypinata.cloud/ipfs/{meta_url[-2]}/{meta_url[-1]}'
         meta['image_url'] = image_url
         slots[3] = str(meta).replace('\'','\"')
+        
         try:
             card.init(data['Name'],data['Mail'],data['PIN'],data['PUK'],nfc_sign=self.NFC_choice.GetValue())
         except Exception as e:
             print(f'Exception in init: {e}')
             wx.MessageBox(f"Card cannot be initialized, please reset the card.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         try:
             card = self.get_card()
+            card.verify_pin(data['PIN'])
         except Exception as e:
             wx.MessageBox(f"Card or reader not found, please ensure device is connected.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         try:
+            print('='*12)
+            print(slots)
+            print('='*12)
             for index,value in enumerate(slots):
                 if value:
                     card.user_data[index] = gzip.compress(value.encode("UTF-8"))
         except Exception as e:
             print(f'Error writing data to card: {e}')
             wx.MessageBox(f"Error writing data to card.\n\n {e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         print('Data written')
         print("Generating seed...")
         card.generate_seed(data["PIN"])
         print("Seed generated")
         message = f"Card has been loaded with the NFT, it can now be viewed with Cryptnox Gallery.\nTransfer tokens to it to complete the initialization process.\n"
-        self.info_card(message=message)
+        self.info_card(message=message,pin=data['PIN'])
 
     def get_card(self):
         return cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
@@ -649,12 +679,17 @@ class CardLoadPanel(ScrolledPanel):
             if puk:
                 confirm = utils.confirm(message='This will reset the card, are you sure ?')
                 if confirm == 5100:
+                    # wx.CallAfter(pub.sendMessage,"pause_check_card")
+                    pub.sendMessage("pause_check_card")
+                    time.sleep(1)
                     card.reset(puk)
                     wx.MessageBox(f"Card has been reset.", "Info" ,wx.OK | wx.ICON_INFORMATION)
+                    wx.CallAfter(pub.sendMessage,"start_check_card")
                 else:
                     return
         except Exception as e:
             wx.MessageBox(f"Error resetting card:\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_INFORMATION)
+            wx.CallAfter(pub.sendMessage,"start_check_card")
             return
 
 
@@ -664,7 +699,7 @@ class CardLoadPanel(ScrolledPanel):
             metadata_json = eval(v)
             image_url = metadata_json['image_url'] if 'image_url' in metadata_json.keys() else metadata_json['image']
             split_url = image_url.split('/')
-            url = f"https://cf-ipfs.com/ipfs/{split_url[-2]}/{split_url[-1]}"
+            url = f"https://opengateway.mypinata.cloud/ipfs/{split_url[-2]}/{split_url[-1]}"
             self.fetch_nft(url)
         except Exception as e:  
             print(f'Not downloading NFT:{e}')
@@ -672,7 +707,6 @@ class CardLoadPanel(ScrolledPanel):
 
     def fetch_nft(self,url):
         print(f'Fetching NFT: {url}')
-        self.metedata_label.SetLabel('Metadata (Loading preview...)')
         DownloadThread(self,url)
         # self.preview_text.SetLabel('Loading preview')
         # wx.MessageBox(f"NFT preview will be available shortly.", "Error" ,wx.OK | wx.ICON_INFORMATION)
@@ -680,7 +714,6 @@ class CardLoadPanel(ScrolledPanel):
     def downloaded(self, data):
         try:
             print(f'Downloaded')
-            self.metedata_label.SetLabel('Metadata')
             file_type = filetype.guess(data).mime
             if not file_type.startswith('image'):
                 wx.MessageBox(f"File format not recognized, preview unavailable", "Error" ,wx.OK | wx.ICON_INFORMATION)
@@ -693,30 +726,30 @@ class CardLoadPanel(ScrolledPanel):
             print(f'Exception in downloaded: {e}')
 
     def show_nft(self,nft_type,data):
-        self.preview_sizer.Clear(1)
+        self.nft_sizer.Clear(1)
         if nft_type == 'gif':
             ft = tempfile.NamedTemporaryFile(delete=False, suffix=".gif")
             ft.write(data)
             ft.flush()
             ft.close()
-            self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,300), size=(500,500))
+            self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,0), size=(250,250))
             # print(self.col_sizer_2.GetSize())
             self.anim.Bind(media.EVT_MEDIA_LOADED, self.on_media_loaded)
             self.anim.Bind(media.EVT_MEDIA_FINISHED,self.on_media_finished)
             self.anim.Load(ft.name)
-            self.preview_sizer.Add(self.anim, 0, wx.CENTER, 0)
+            self.nft_sizer.Add(self.anim, 0, wx.CENTER, 0)
             self.Layout()
         else:
             print('Not gif')
             img = wx.Image(io.BytesIO(data)).ConvertToBitmap()
-            img = self.scale_bitmap(img, 500, img.GetHeight())
-            nft = wx.StaticBitmap(self, -1, img, (0,500))
-            self.preview_sizer.Add(nft,0,wx.CENTER,0)
+            img = self.scale_bitmap(img, 250, img.GetHeight())
+            nft = wx.StaticBitmap(self, -1, img, (0,250))
+            self.nft_sizer.Add(nft,0,wx.CENTER,0)
             self.Layout()
 
     def scale_bitmap(self,bitmap, width, height):
         image = bitmap.ConvertToImage()
-        rescale_height = ((bitmap.GetWidth()-500)/bitmap.GetWidth())*bitmap.GetHeight()
+        rescale_height = ((bitmap.GetWidth()-250)/bitmap.GetWidth())*bitmap.GetHeight()
         height_rescaled = bitmap.GetHeight()-rescale_height
         image = image.Scale(width, height_rescaled, wx.IMAGE_QUALITY_HIGH)
         result = wx.Bitmap(image)

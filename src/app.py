@@ -1,7 +1,9 @@
 import wx
 from card_load_panel import CardLoadPanel
 from logo_tabs_panel import LogoTabsPanel
+from buttons_panel import ButtonsPanel
 from wallet_connect_panel import WalletConnectPanel
+from pubsub import pub
 
 class NFT_CardManager_Frame(wx.Frame):
 
@@ -11,25 +13,37 @@ class NFT_CardManager_Frame(wx.Frame):
         self.SetForegroundColour('white')
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        main_sizer.Add(LogoTabsPanel(self,-1),0,wx.ALIGN_CENTER_HORIZONTAL)
-        main_sizer.Add(CardLoadPanel(self,-1),0,wx.ALIGN_CENTER_HORIZONTAL)
-        main_sizer.Add(WalletConnectPanel(self,-1),0,wx.ALIGN_CENTER_HORIZONTAL)
+        self.card_load_panel = CardLoadPanel(self,-1)
 
-        self.GetChildren()[2].Hide()
+        main_sizer.Add(LogoTabsPanel(self,-1),0,wx.EXPAND)
+        main_sizer.Add(self.card_load_panel,0,wx.ALIGN_CENTER_HORIZONTAL)
+        main_sizer.AddSpacer(10)
+        main_sizer.Add(ButtonsPanel(self,-1),0,wx.EXPAND)
+        main_sizer.Add(WalletConnectPanel(self,-1),0,wx.ALIGN_CENTER_HORIZONTAL)
+        main_sizer.AddSpacer(10)
+
+        self.Bind(wx.EVT_CLOSE,self.on_close)
+        self.GetChildren()[3].Hide()
         self.SetSizerAndFit(main_sizer)
         self.Show(1)
 
     def CardLoadTabPressed(self,event):
-        print('CardLoabTabbed')
-        self.GetChildren()[2].Hide()
-        self.GetChildren()[1].Show()
+        self.GetChildren()[3].Hide()
+        self.GetChildren()[2].Show()
+        self.GetChildren()[0].Show()
         self.Layout()
 
     def WalletConnectTabPressed(self,event):
-        print('WalletConnectTabbed')
-        self.GetChildren()[1].Hide()
-        self.GetChildren()[2].Show()
+        self.GetChildren()[0].Hide()
+        self.GetChildren()[2].Hide()
+        self.GetChildren()[3].Show()
         self.Layout()
+
+    def on_close(self,event):
+        print('Close')
+        self.GetChildren()[2].check_card_run = False
+        pub.sendMessage("pause_check_card")
+        wx.CallLater(500,self.Destroy)
 
 class NFT_CardManager_App(wx.App):
 

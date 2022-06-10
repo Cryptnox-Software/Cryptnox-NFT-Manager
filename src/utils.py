@@ -56,7 +56,9 @@ def _history_counter(card: cryptnoxpy.Card):
         history = []
         index = 0
         entry = card.history(index)
+        print('Got card history')
         while entry.signing_counter != 0:
+            print(f'Got signing counter index: {index}')
             history.append([entry.signing_counter, entry.hashed_data.hex()])
             index += 1
             entry = card.history(index)

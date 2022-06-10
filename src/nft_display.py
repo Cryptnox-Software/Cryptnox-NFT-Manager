@@ -8,13 +8,12 @@ class DownloadThread(Thread):
         super(DownloadThread, self).__init__()
         self.panel = panel
         self.url: str = image_url
-        header = requests.head(self.url)
-        self.file_size = int(int(header.headers["content-length"]) / 1024)
-
-        self.data = b""
         self.start()
 
     def run(self):
+        header = requests.head(self.url)
+        self.file_size = int(int(header.headers["content-length"]) / 1024)
+        self.data = b""
         try:
             print(f'Starting download thread')
             req = requests.get(self.url, stream=True)
