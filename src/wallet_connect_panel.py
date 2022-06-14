@@ -353,6 +353,7 @@ class WalletConnectPanel(wx.Panel):
         self.wc_client.close()
         self.wc_timer.Stop()
         self.status_text.SetLabel('🔴 Not connected')
+        self.status_text.SetForegroundColour('white')
         self.disconnect_btn.Disable()
         wx.MessageBox('Walletconnect has been disconnected.')
 
@@ -386,11 +387,7 @@ class WalletConnectPanel(wx.Panel):
         wc_uri = self.url_field.GetValue().strip()
         try:
             pin_result = ask(message='Please input your card PIN:\nFor default, type \'000000000\'')
-            if pin_result != '':
-                print(pin_result)
-                self.pin = pin_result
-            else:
-                return
+            self.pin = '000000000' if pin_result == '' else pin_result
             self.card = cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
             self.card.verify_pin(self.pin)
             self.pubkey = self.card.get_public_key(hexed=False)
@@ -429,6 +426,8 @@ class WalletConnectPanel(wx.Panel):
             self.wc_timer.Notify = self.watch_messages
             self.wc_timer.Start(2500, oneShot=wx.TIMER_CONTINUOUS)
             self.status_text.SetLabel('🟢 Connected to DAPP')
+            self.status_text.SetForegroundColour('green')
+            self.url_field.SetValue('')
             self.disconnect_btn.Enable()
         else:
             self.wc_client.reject_session_request(req_id)
