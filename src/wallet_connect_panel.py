@@ -10,6 +10,8 @@ class WalletConnectPanel(wx.Panel):
         super(WalletConnectPanel,self).__init__(*args, **kw)
         self.SetBackgroundColour('black')
         self.SetForegroundColour('white')
+        self.GWEI_DECIMALS = 9
+        self.GAZ_LIMIT_ERC_20_TX = 180000
         font = wx.Font(13, wx.DECORATIVE,wx.NORMAL, wx.NORMAL)
 
         self.ERC20 = None
@@ -64,11 +66,26 @@ class WalletConnectPanel(wx.Panel):
         row_sizer.Add(self.url_field,1,wx.ALL,border=5)
         
         main_sizer.Add(row_sizer,1,wx.EXPAND)
+
+        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.status_text = wx.StaticText(self,label='🔴 Not connected')
+        self.status_text.SetFont(font)
+
+        row_sizer.Add(self.status_text,1,wx.ALL,border=5)
+
+        main_sizer.Add(row_sizer,1,wx.EXPAND)
         
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
         connect_btn = wx.Button(self,label='Connect',size=(150,40))
         connect_btn.Bind(wx.EVT_BUTTON,self.connect_dapp)
+
         row_sizer.Add(connect_btn,1,wx.ALL,border=5)
+
+        self.disconnect_btn = wx.Button(self,label='Disconnect',size=(150,40))
+        self.disconnect_btn.Bind(wx.EVT_BUTTON,self.disconnect_dapp)
+        self.disconnect_btn.Disable()
+        
+        row_sizer.Add(self.disconnect_btn,1,wx.ALL,border=5)
 
         main_sizer.Add(row_sizer,1,wx.EXPAND)
 
@@ -179,9 +196,61 @@ class WalletConnectPanel(wx.Panel):
             print("WC command processing finished, now reading next available message.")
             wc_message = self.wc_client.get_message()
 
+    def process_sign_typeddata(self, data_bin):
+        """Process a WalletConnect eth_signTypedData call"""
+        EIP712_HEADER = b"\x19\x01"
+        data_obj = json.loads(data_bin)
+        chain_id = None
+        if "domain" in data_obj and "chainId" in data_obj["domain"]:
+            chain_id = data_obj["domain"]["chainId"]
+            if isinstance(chain_id, str) and chain_id.startswith("eip155:"):
+                chain_id = int(chain_id[7:])
+        # Silent ignore when chain ids mismatch
+        if chain_id is not None and self.chainID != data_obj["domain"]["chainId"]:
+            print("Wrong chain id in signedTypedData")
+            return None
+        hash_domain, hash_data = typed_sign_hash(data_obj)
+        sign_request = (
+            "WalletConnect signature request :\n\n"
+            f"- Data to sign (typed) :\n"
+            f"{print_text_query(data_obj)}"
+            f"\n - Hash domain (hex) :\n"
+            f" 0x{hash_domain.hex().upper()}\n"
+            f"\n - Hash data (hex) :\n"
+            f" 0x{hash_data.hex().upper()}\n"
+        )
+        sign_request += USER_SCREEN
+        if confirm(self,sign_request) == 5100:
+            hash_sign = sha3(EIP712_HEADER + hash_domain + hash_data)
+            der_signature = self.card.sign(hash_sign,pin=self.pin)
+            return self.eth.encode_datasign(hash_sign, der_signature)
+
+    def encode_datasign(self, datahash, signature_der):
+        """Encode a message signature from the DER sig."""
+        # Signature decoding
+        lenr = int(signature_der[3])
+        lens = int(signature_der[5 + lenr])
+        r = int.from_bytes(signature_der[4 : lenr + 4], "big")
+        s = int.from_bytes(signature_der[lenr + 6 : lenr + 6 + lens], "big")
+        # Parity recovery
+        v = 27
+        h = int.from_bytes(datahash, "big")
+        print(self.pubkey)
+        if public_key_recover(h, r, s, v) != self.pubkey:
+            v += 1
+        # Signature encoding
+        return uint256(r) + uint256(s) + bytes([v])
+
+    def broadcast_tx(self, txdata):
+        """Broadcast and return the tx hash as 0xhhhhhhhh"""
+        return self.send(txdata)
+
+    def send(self, tx_hex):
+        """Upload the tx"""
+        return self.api.pushtx(tx_hex)
+
     def process_signtransaction(self, txdata):
-        GWEI_DECIMALS = 9
-        GAZ_LIMIT_ERC_20_TX = 180000
+        
         """Build a signed tx, for WalletConnect eth_sendTransaction and eth_signTransaction call"""
         to_addr = txdata.get("to", "  New contract")[2:]
         value = txdata.get("value", 0)
@@ -192,14 +261,14 @@ class WalletConnectPanel(wx.Panel):
             gas_price = int(gas_price, 16)
         else:
             gas_price = self.api.get_gasprice()
-        gas_limit = txdata.get("gas", GAZ_LIMIT_ERC_20_TX)
-        if gas_limit != GAZ_LIMIT_ERC_20_TX:
+        gas_limit = txdata.get("gas", self.GAZ_LIMIT_ERC_20_TX)
+        if gas_limit != self.GAZ_LIMIT_ERC_20_TX:
             gas_limit = int(gas_limit, 16)
         request_message = (
             "WalletConnect transaction request :\n\n"
             f" To    :  0x{to_addr}\n"
             f" Value :  {balance_string(value , self.decimals)} {self.blockchain_choice.GetStringSelection()}\n"
-            f" Gas price  : {balance_string(gas_price, GWEI_DECIMALS)} Gwei\n"
+            f" Gas price  : {balance_string(gas_price, self.GWEI_DECIMALS)} Gwei\n"
             f" Gas limit  : {gas_limit}\n"
             f"Max fee cost: {balance_string(gas_limit*gas_price, self.decimals)} {self.blockchain_choice.GetStringSelection()}\n"
         )
@@ -266,7 +335,7 @@ class WalletConnectPanel(wx.Panel):
         if data is None:
             data = bytearray(b"")
         tx_bin, hash_to_sign = self.prepare(account, amount, gazprice, ethgazlimit, data)
-        tx_signature = self.card.sign(hash_to_sign)
+        tx_signature = self.card.sign(hash_to_sign,pin=self.pin)
         return add_signature(tx_signature)
 
     def get_decimals(self):
@@ -279,6 +348,13 @@ class WalletConnectPanel(wx.Panel):
 
     def get_account(self):
         return f"0x{self.eth_address}"
+
+    def disconnect_dapp(self,event):
+        self.wc_client.close()
+        self.wc_timer.Stop()
+        self.status_text.SetLabel('🔴 Not connected')
+        self.disconnect_btn.Disable()
+        wx.MessageBox('Walletconnect has been disconnected.')
 
     def connect_dapp(self,event):
         INFURA_KEY = 'ac389dd3ded74e4a85cc05c8927825e8'
@@ -309,14 +385,15 @@ class WalletConnectPanel(wx.Panel):
         }
         wc_uri = self.url_field.GetValue().strip()
         try:
-            pin_result = ask(message='Please input your card PIN:')
+            pin_result = ask(message='Please input your card PIN:\nFor default, type \'000000000\'')
             if pin_result != '':
+                print(pin_result)
                 self.pin = pin_result
             else:
                 return
             self.card = cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
             self.card.verify_pin(self.pin)
-            pubkey = self.card.get_public_key(hexed=False)
+            self.pubkey = self.card.get_public_key(hexed=False)
             print(rpc_endpoint)
             self.api = Web3Client(rpc_endpoint, "Uniblow/1")
         except cryptnoxpy.exceptions.PinException:
@@ -327,9 +404,7 @@ class WalletConnectPanel(wx.Panel):
             print(f'Error getting card: {e}')
             wx.MessageBox(f'Error getting card, please ensure device is connected.\n{e}')
             return
-        print(pubkey)
-        print(pubkey[1:])
-        key_hash = sha3(pubkey[1:])
+        key_hash = sha3(self.pubkey[1:])
         self.eth_address = format_checksum_address(key_hash.hex()[-40:])
         try:
             WCClient.set_wallet_metadata(WALLET_DESCR)
@@ -353,6 +428,8 @@ class WalletConnectPanel(wx.Panel):
             self.wc_timer = wx.Timer()
             self.wc_timer.Notify = self.watch_messages
             self.wc_timer.Start(2500, oneShot=wx.TIMER_CONTINUOUS)
+            self.status_text.SetLabel('🟢 Connected to DAPP')
+            self.disconnect_btn.Enable()
         else:
             self.wc_client.reject_session_request(req_id)
             self.wc_client.close()

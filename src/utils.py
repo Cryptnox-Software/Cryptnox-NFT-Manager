@@ -13,6 +13,8 @@ import sha3 as keccak
 import hashlib
 from ECP256k1 import ECPoint,inverse_mod
 from decimal import DefaultContext, Decimal
+from pprint import pformat
+from sys import version_info
 
 HexStr = NewType('HexStr', str)
 HexAddress = NewType('HexAddress', HexStr)
@@ -303,3 +305,45 @@ def int2bytearray(i):
     while barr[0] == 0 and len(barr) > 1:
         barr = barr[1:]
     return bytearray(barr)
+
+def shift_10(num_str, shift):
+    utils_decimal_ctx = DefaultContext.copy()
+    """Multiply by power of 10 at the string level, args >= 0"""
+    # Act like a point shifter
+    # Avoid floating point issues
+    if not isinstance(num_str, str):
+        raise ValueError("num_str must be string")
+    if not isinstance(shift, int):
+        raise ValueError("shift must be integer")
+    if shift < 0:
+        raise ValueError("shift must be postive or null")
+    return int(utils_decimal_ctx.scaleb(Decimal(num_str, utils_decimal_ctx), shift))
+
+def print_text_query(query_obj):
+    """Generate the string for user display approval."""
+    format_args = {"indent": 4}
+    if version_info >= (3, 8):
+        format_args["sort_dicts"] = False
+    datam = pformat(query_obj["message"], **format_args)
+    return f"{query_obj['primaryType']}\n{datam}\n"
+
+def typed_sign_hash(query_obj, chain_id=None):
+    """Compute the hash to sign form the typed data object."""
+
+    # Checking the query format
+    if "primaryType" not in query_obj:
+        raise ValueError("Missing primaryType in typedhash query.")
+    if "types" not in query_obj:
+        raise ValueError("Missing types in typedhash query.")
+    if "EIP712Domain" not in query_obj["types"]:
+        raise ValueError("Missing EIP712Domain in typedhash.types.")
+    if query_obj["primaryType"] not in query_obj["types"]:
+        if query_obj["primaryType"] not in std_types:
+            raise ValueError("Missing primary type in typedhash.types query.")
+    if "message" not in query_obj:
+        raise ValueError("Missing message in typedhash query.")
+    if "domain" not in query_obj:
+        raise ValueError("Missing domain in typedhash query.")
+    if chain_id is not None and "chainId" in query_obj["domain"]:
+        if chain_id != query_obj["domain"]["chainId"]:
+            raise ValueError("ChainID is not matching the current active chain.")

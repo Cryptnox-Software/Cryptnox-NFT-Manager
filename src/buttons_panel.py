@@ -47,7 +47,7 @@ class ButtonsPanel(wx.Panel):
         main_sizer.AddSpacer(200)
         main_sizer.Add(self.status_label,0,wx.TOP,border=10)
 
-        CardCheckThread(self,-1)
+        # CardCheckThread(self,-1)
         pub.subscribe(self.update_status, "update_status")
         pub.subscribe(self.pause_check_card,"pause_check_card")
         pub.subscribe(self.start_check_card,"start_check_card")
