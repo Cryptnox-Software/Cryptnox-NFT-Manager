@@ -1,3 +1,4 @@
+from tkinter import HORIZONTAL
 import requests
 import wx
 import cryptnoxpy
@@ -100,6 +101,7 @@ class CardLoadPanel(ScrolledPanel):
         text.SetFont(font)
         row_sizer.Add(text,0,wx.ALL,border=5)
         self.NFC_choice = wx.CheckBox(self)
+        self.NFC_choice.SetValue(1)
         row_sizer.Add(self.NFC_choice,0,wx.ALL,border=5)
         col_sizer.Add(row_sizer,0,wx.EXPAND)
         
@@ -119,8 +121,12 @@ class CardLoadPanel(ScrolledPanel):
         text = wx.StaticText(self,label='ABI Value',size=(100,16))
         text.SetFont(font)
         self.manual_abi_sizer.Add(text,0,wx.ALL,border=5)
-        self.manual_ABI = wx.TextCtrl(self,size=(238,23))            
+        self.manual_ABI = wx.TextCtrl(self,size=(158,23))          
         self.manual_abi_sizer.Add(self.manual_ABI,0,wx.ALL,border=5)
+        self.edit_abi = wx.Button(self,-1,size=(75,23))
+        self.edit_abi.SetLabel('View data')
+        self.edit_abi.Bind(wx.EVT_BUTTON,self.edit_abi_click)        
+        self.manual_abi_sizer.Add(self.edit_abi,0,wx.TOP | wx.RIGHT,border=5)
         col_sizer.Add(self.manual_abi_sizer,0,wx.EXPAND)
 
         #Endpoint URLs
@@ -207,13 +213,20 @@ class CardLoadPanel(ScrolledPanel):
                 self.metedata_label = wx.StaticText(self,label=self.columns[x],size=(100,16))
                 self.metedata_label.SetFont(font)
                 row_sizer.Add(self.metedata_label,0,wx.ALL,border=5)
+                field = wx.TextCtrl(self,x+1,size=(158,23))    
+                self.edit_metadata = wx.Button(self,-1,size=(75,23))
+                self.edit_metadata.SetLabel('Edit data')
+                self.edit_metadata.Bind(wx.EVT_BUTTON,self.edit_metadata_click)        
+                row_sizer.Add(field,0,wx.ALL,border=5)
+                row_sizer.Add(self.edit_metadata,0,wx.TOP | wx.RIGHT,border=5)
+                self.col_sizer_2.Add(row_sizer,0,wx.EXPAND)
             else:
                 text = wx.StaticText(self,label=self.columns[x],size=(100,16))
                 text.SetFont(font)
                 row_sizer.Add(text,0,wx.ALL,border=5)
-            field = wx.TextCtrl(self,x+1,size=(238,23))            
-            row_sizer.Add(field,0,wx.ALL,border=5)
-            self.col_sizer_2.Add(row_sizer,0,wx.EXPAND)
+                field = wx.TextCtrl(self,x+1,size=(238,23))            
+                row_sizer.Add(field,0,wx.ALL,border=5)
+                self.col_sizer_2.Add(row_sizer,0,wx.EXPAND)
 
         for x in range(5,9):
             field = self.Parent.FindWindowById(x)
@@ -247,6 +260,19 @@ class CardLoadPanel(ScrolledPanel):
 
         self.manual_abi_sizer.Hide(0)
         self.manual_abi_sizer.Hide(1)
+        self.manual_abi_sizer.Hide(2)
+
+
+
+    def edit_metadata_click(self,event):
+        print('MetaClicked')
+        EditBox(self,'Metadata',self.Parent.FindWindowById(8))
+        pass
+
+    def edit_abi_click(self,event):
+        print('ABIClicked')
+        EditBox(self,'ABI',self.manual_ABI,read_only=True)
+        pass
 
 
     def clear_fields(self,event):
@@ -271,6 +297,7 @@ class CardLoadPanel(ScrolledPanel):
             self.manual_ABI.SetValue('')
             self.manual_abi_sizer.Hide(0)
             self.manual_abi_sizer.Hide(1)
+            self.manual_abi_sizer.Hide(2)
             self.manual_ABI.SetEditable(False)
             self.ABI_chooser.Enable()
             self.Layout()
@@ -403,20 +430,23 @@ class CardLoadPanel(ScrolledPanel):
             self.endpoint_choice.Enable()
         self.Parent.FindWindowById(3).SetValue('000000000')
         self.Parent.FindWindowById(4).SetValue('000000000000')
-        # self.Layout()
 
     def ABI_chosen(self,event: wx.EVT_LISTBOX):
         if self.ABI_chooser.GetString(self.ABI_chooser.GetSelection()) == 'Manual':
             self.manual_abi_sizer.Show(0)
             self.manual_abi_sizer.Show(1)
+            self.manual_abi_sizer.Show(2)
             self.Layout()
         else:
             self.manual_abi_sizer.Hide(0)
             self.manual_abi_sizer.Hide(1)
+            self.manual_abi_sizer.Hide(2)
             self.Layout()
 
     def file_picked(self,event: wx.EVT_FILEPICKER_CHANGED):
-        path_picked = self.file_picker.GetPath()    
+        path_picked = self.file_picker.GetPath() 
+        print(path_picked[-3:] == 'txt')
+        print('NFT' in path_picked)   
         if path_picked[-3:] == 'txt' and 'NFT' in path_picked:
             try:
                 with open(path_picked,'r') as file:
@@ -424,12 +454,20 @@ class CardLoadPanel(ScrolledPanel):
                 if 'http' not in lines[0].strip():
                     raise Exception()
                 l = []
-                l.append(lines[6].strip()) #chain_id
-                l.append(lines[9].strip()) #contract_address
-                l.append(lines[13].strip()) #token_id
-                l.append(lines[21].strip()) #metadata
-                l.append(lines[3].strip()) #endpoint
-                l.append(lines[18].strip()) #ABI
+                lines= [x.strip() for x in lines]
+                while '' in lines:
+                    lines.remove('')
+                print(len(lines))
+                for each in lines:
+                    print(f'===================================')
+                    print(each)
+                    print(f'===================================')
+                l.append(lines[4].strip()) #chain_id
+                l.append(lines[6].strip()) #contract_address
+                l.append(lines[8].strip()) #token_id
+                l.append(lines[12].strip()) #metadata
+                l.append(lines[2].strip()) #endpoint
+                l.append(lines[10].strip()) #ABI
                 if 'polygon' in l[-2]:
                     self.endpoint_choice.SetStringSelection(f'Polygon: {self.endpoint_urls["Polygon"]}')
                 elif 'ethereum' in l[-2]:
@@ -438,7 +476,7 @@ class CardLoadPanel(ScrolledPanel):
                     wx.MessageBox("Unrecognized endpoint, please contact developer", "Info" ,wx.OK | wx.ICON_WARNING)
                     print(f'Unrecognized endpoint: {l[-2]}')
             except Exception as e:
-                wx.MessageBox("Please select a valid txt file with NFT fields.", "Info" ,wx.OK | wx.ICON_WARNING)
+                wx.MessageBox(f"Please select a valid txt file with NFT fields.\n\n{e}", "Info" ,wx.OK | wx.ICON_WARNING)
                 return
                 
             for x in range (5,9):
@@ -449,6 +487,7 @@ class CardLoadPanel(ScrolledPanel):
             self.ABI_chooser.SetStringSelection('Manual')
             self.manual_abi_sizer.Show(0)
             self.manual_abi_sizer.Show(1)
+            self.manual_abi_sizer.Show(2)
             self.Layout()
             
             self.manual_ABI.SetValue(l[-1])
@@ -479,6 +518,7 @@ class CardLoadPanel(ScrolledPanel):
         self.ABI_chooser.Disable()
         self.manual_abi_sizer.Show(0)
         self.manual_abi_sizer.Show(1)
+        self.manual_abi_sizer.Show(2)
         self.Layout()
         self.manual_ABI.SetValue(ABI)
         metadata = False
@@ -613,16 +653,22 @@ class CardLoadPanel(ScrolledPanel):
         meta_str = str(slots[3]).replace('\'','\"')
         # slots[3] = str(slots[3]).replace('\'','\"')
         meta = eval(meta_str)
-        meta_url = meta['image_url'].split('/')
-        image_url = f'https://opengateway.mypinata.cloud/ipfs/{meta_url[-2]}/{meta_url[-1]}'
-        meta['image_url'] = image_url
+        try:
+            meta_url = meta['image_url'].split('/')
+            ipfs = 'ipfs' in meta['image_url']
+        except KeyError:
+            meta_url = meta['image'].split('/')
+            ipfs = 'ipfs' in meta['image']
+        if ipfs:
+            image_url = f'https://opengateway.mypinata.cloud/ipfs/{meta_url[-2]}/{meta_url[-1]}'
+            meta['image_url'] = image_url
         slots[3] = str(meta).replace('\'','\"')
         
         try:
             card.init(data['Name'],data['Mail'],data['PIN'],data['PUK'],nfc_sign=self.NFC_choice.GetValue())
         except Exception as e:
             print(f'Exception in init: {e}')
-            wx.MessageBox(f"Card cannot be initialized, please reset the card.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)
+            wx.MessageBox(f"Card cannot be initialized.\n\nError Information:\n\nCard is already initialized, please reset the card.", "Error" ,wx.OK | wx.ICON_WARNING)
             wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         try:
@@ -778,7 +824,7 @@ class MessageBox(wx.Dialog):
         print(message.split('\n'))
         height = 0
         for each in message.split('\n'):
-            text = wx.TextCtrl(window, style=wx.TE_READONLY|wx.BORDER_NONE,pos=(30,height),size=(1000,23))
+            text = wx.TextCtrl(window, style=wx.TE_READONLY|wx.BORDER_NONE,pos=(30,height),size=(600,23))
             text.SetValue(each)
             # window.AddChild(text)
             height+=23
@@ -787,3 +833,31 @@ class MessageBox(wx.Dialog):
         window.SetScrollRate(15,15)
         self.SetSizerAndFit(main_sizer)
         self.ShowModal()
+
+
+class EditBox(wx.Dialog):
+    def __init__(self, parent, title,field,read_only=False):
+        super(EditBox,self).__init__(parent,title=title)
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+        window = wx.ScrolledWindow(self,-1,size=(400,400))
+        main_sizer.Add(window,1,wx.EXPAND)
+        self.field = field
+        value = field.GetValue()
+        if read_only:
+            self.text = wx.TextCtrl(window,style=wx.TE_MULTILINE | wx.TE_READONLY,size=(400,400))
+        else:
+            self.text = wx.TextCtrl(window,style=wx.TE_MULTILINE,size=(400,400))
+            
+        self.text.SetValue(value)
+        window.SetVirtualSize(400,400)
+        window.SetScrollRate(15,15)
+
+        if not read_only:
+            save_btn = wx.Button(self,-1,label="Save changes",size=(100,30))
+            save_btn.Bind(wx.EVT_BUTTON,self.save_changes)
+            main_sizer.Add(save_btn,0,wx.CENTER)
+        self.SetSizerAndFit(main_sizer)
+        self.ShowModal()
+
+    def save_changes(self,event):
+        self.field.SetValue(self.text.GetValue())

@@ -3,6 +3,7 @@ from pywalletconnect import WCClient
 from utils import *
 import cryptnoxpy
 from pyweb3 import Web3Client
+import json
 
 class WalletConnectPanel(wx.Panel):
 
@@ -142,66 +143,72 @@ class WalletConnectPanel(wx.Panel):
             id_request = wc_message[0]
             method = wc_message[1]
             parameters = wc_message[2]
-            print(f"WC request id: {id_request}, method: {method}, params: {parameters}")
-            if method == "wc_sessionPayload":
-                # Read if WCv2 and extract to v1
-                print("WCv2 request")
-                if parameters.get("request"):
-                    print("request decoding")
-                    method = parameters["request"].get("method")
-                    parameters = parameters["request"].get("params")
-                    print(f"Actual method: {method}, params: {parameters}")
-            if method == "wc_sessionUpdate":
-                if parameters[0].get("approved") is False:
-                    raise Exception("Disconnected by the web app service.")
-            if method == "wc_sessionDelete":
-                if parameters.get("reason"):
-                    raise Exception(
-                        "Disconnected by the web app service.\n"
-                        f"Reason : {parameters['reason']['message']}"
-                    )
-            elif method == "personal_sign" and len(parameters) > 1:
-                if compare_eth_addresses(parameters[1], self.get_account()):
-                    signature = self.process_sign_message(parameters[0])
-                    if signature is not None:
-                        self.wc_client.reply(id_request, f"0x{signature.hex()}")
-            elif method == "eth_sign" and len(parameters) > 1:
-                if compare_eth_addresses(parameters[0], self.get_account()):
-                    signature = self.process_sign_message(parameters[1])
-                    if signature is not None:
-                        self.wc_client.reply(id_request, f"0x{signature.hex()}")
-            elif method == "eth_signTypedData" and len(parameters) > 1:
-                if compare_eth_addresses(parameters[0], self.get_account()):
-                    signature = self.process_sign_typeddata(parameters[1])
-                    if signature is not None:
-                        self.wc_client.reply(id_request, f"0x{signature.hex()}")
-            elif method == "eth_sendTransaction" and len(parameters) > 0:
-                # sign and sendRaw
-                tx_obj_tosign = parameters[0]
-                if compare_eth_addresses(tx_obj_tosign["from"], self.get_account()):
-                    tx_signed = self.process_signtransaction(tx_obj_tosign)
-                    if tx_signed is not None:
-                        tx_hash = self.broadcast_tx(tx_signed)
-                        self.wc_client.reply(id_request, tx_hash)
-            elif method == "eth_signTransaction" and len(parameters) > 0:
-                tx_obj_tosign = parameters[0]
-                if compare_eth_addresses(tx_obj_tosign["from"], self.get_account()):
-                    tx_signed = self.process_signtransaction(tx_obj_tosign)
-                    if tx_signed is not None:
-                        self.wc_client.reply(id_request, f"0x{tx_signed}")
-            elif method == "eth_sendRawTransaction" and len(parameters) > 0:
-                tx_data = parameters[0]
-                tx_hash = self.broadcast_tx(tx_data)
-                self.wc_client.reply(id_request, tx_hash)
-            print("WC command processing finished, now reading next available message.")
-            wc_message = self.wc_client.get_message()
+            try:
+                print(f"WC request id: {id_request}, method: {method}, params: {parameters}")
+                if method == "wc_sessionPayload":
+                    # Read if WCv2 and extract to v1
+                    print("WCv2 request")
+                    if parameters.get("request"):
+                        print("request decoding")
+                        method = parameters["request"].get("method")
+                        parameters = parameters["request"].get("params")
+                        print(f"Actual method: {method}, params: {parameters}")
+                if method == "wc_sessionUpdate":
+                    if parameters[0].get("approved") is False:
+                        raise Exception("Disconnected by the web app service.")
+                if method == "wc_sessionDelete":
+                    if parameters.get("reason"):
+                        raise Exception(
+                            "Disconnected by the web app service.\n"
+                            f"Reason : {parameters['reason']['message']}"
+                        )
+                elif method == "personal_sign" and len(parameters) > 1:
+                    if compare_eth_addresses(parameters[1], self.get_account()):
+                        signature = self.process_sign_message(parameters[0])
+                        if signature is not None:
+                            self.wc_client.reply(id_request, f"0x{signature.hex()}")
+                elif method == "eth_sign" and len(parameters) > 1:
+                    if compare_eth_addresses(parameters[0], self.get_account()):
+                        signature = self.process_sign_message(parameters[1])
+                        if signature is not None:
+                            self.wc_client.reply(id_request, f"0x{signature.hex()}")
+                elif method == "eth_signTypedData" and len(parameters) > 1:
+                    if compare_eth_addresses(parameters[0], self.get_account()):
+                        signature = self.process_sign_typeddata(parameters[1])
+                        if signature is not None:
+                            self.wc_client.reply(id_request, f"0x{signature.hex()}")
+                elif method == "eth_sendTransaction" and len(parameters) > 0:
+                    # sign and sendRaw
+                    tx_obj_tosign = parameters[0]
+                    if compare_eth_addresses(tx_obj_tosign["from"], self.get_account()):
+                        tx_signed = self.process_signtransaction(tx_obj_tosign)
+                        if tx_signed is not None:
+                            tx_hash = self.broadcast_tx(tx_signed)
+                            self.wc_client.reply(id_request, tx_hash)
+                elif method == "eth_signTransaction" and len(parameters) > 0:
+                    tx_obj_tosign = parameters[0]
+                    if compare_eth_addresses(tx_obj_tosign["from"], self.get_account()):
+                        tx_signed = self.process_signtransaction(tx_obj_tosign)
+                        if tx_signed is not None:
+                            self.wc_client.reply(id_request, f"0x{tx_signed}")
+                elif method == "eth_sendRawTransaction" and len(parameters) > 0:
+                    tx_data = parameters[0]
+                    tx_hash = self.broadcast_tx(tx_data)
+                    self.wc_client.reply(id_request, tx_hash)
+                print("WC command processing finished, now reading next available message.")
+                wc_message = self.wc_client.get_message()
+            except Exception as e:
+                wx.MessageBox(f'Something went wrong: {e}')
 
     def process_sign_typeddata(self, data_bin):
+        print('ProcessSignTypeData')
         """Process a WalletConnect eth_signTypedData call"""
         EIP712_HEADER = b"\x19\x01"
+        print()
         data_obj = json.loads(data_bin)
         chain_id = None
         if "domain" in data_obj and "chainId" in data_obj["domain"]:
+            print('IFone')
             chain_id = data_obj["domain"]["chainId"]
             if isinstance(chain_id, str) and chain_id.startswith("eip155:"):
                 chain_id = int(chain_id[7:])
@@ -209,7 +216,9 @@ class WalletConnectPanel(wx.Panel):
         if chain_id is not None and self.chainID != data_obj["domain"]["chainId"]:
             print("Wrong chain id in signedTypedData")
             return None
+        print('Prepare typed sign hash')
         hash_domain, hash_data = typed_sign_hash(data_obj)
+        print('Preparing sign request')
         sign_request = (
             "WalletConnect signature request :\n\n"
             f"- Data to sign (typed) :\n"
@@ -223,9 +232,10 @@ class WalletConnectPanel(wx.Panel):
         if confirm(self,sign_request) == 5100:
             hash_sign = sha3(EIP712_HEADER + hash_domain + hash_data)
             der_signature = self.card.sign(hash_sign,pin=self.pin)
-            return self.eth.encode_datasign(hash_sign, der_signature)
+            return self.encode_datasign(hash_sign, der_signature)
 
     def encode_datasign(self, datahash, signature_der):
+        print('EncodeDataSign')
         """Encode a message signature from the DER sig."""
         # Signature decoding
         lenr = int(signature_der[3])
@@ -250,7 +260,7 @@ class WalletConnectPanel(wx.Panel):
         return self.api.pushtx(tx_hex)
 
     def process_signtransaction(self, txdata):
-        
+        print('ProcessSignTransaction')
         """Build a signed tx, for WalletConnect eth_sendTransaction and eth_signTransaction call"""
         to_addr = txdata.get("to", "  New contract")[2:]
         value = txdata.get("value", 0)
@@ -278,7 +288,32 @@ class WalletConnectPanel(wx.Panel):
             data = bytearray.fromhex(data_hex[2:])
             return self.build_tx(value, gas_price, gas_limit, to_addr, data)
 
+    def getbalance(self, native=True):
+        print('Getbalance')
+        BALANCEOF_FUNCTION = "70a08231"
+        block_state = "latest"
+        if native:
+            # ETH native balance
+            return self.api.get_balance(f"0x{self.eth_address}", block_state)
+        # ERC20 token balance
+        balraw = self.api.call(
+            self.ERC20,
+            BALANCEOF_FUNCTION,
+            f"000000000000000000000000{self.address}",
+            block_state,
+        )
+        if balraw == [] or balraw == "0x":
+            return 0
+        balance = int(balraw[2:], 16)
+        return balance
+
+    def getnonce(self):
+        print('GetNonce')
+        numtx = self.api.get_tx_num(self.eth_address, "pending")
+        return numtx
+
     def prepare(self, toaddr, paymentvalue, gprice, glimit, data=bytearray(b"")):
+        print('Prepare')
         """Build a transaction to be signed.
         toaddr in hex without 0x
         value in wei, gprice in Wei
