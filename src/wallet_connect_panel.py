@@ -96,9 +96,13 @@ class WalletConnectPanel(wx.Panel):
         self.network_choice.SetItems(self.networks[self.blockchain_choice.GetStringSelection()])
 
     def erase_info(self):
-        if self.wc_timer:
-            self.wc_client.close()
-            self.wc_timer.Stop()
+        print('Erasing info')
+        self.wc_client.close()
+        self.wc_timer.Stop()
+        del self.wc_client
+        del self.wc_timer
+        self.Parent.Refresh()
+            
 
     def watch_messages(self):
         try:
@@ -198,13 +202,19 @@ class WalletConnectPanel(wx.Panel):
                 print("WC command processing finished, now reading next available message.")
                 wc_message = self.wc_client.get_message()
             except Exception as e:
-                wx.MessageBox(f'Something went wrong: {e}')
+                if 'Disconnected' in str(e):
+                    self.erase_info()
+                    self.status_text.SetLabel('🔴 Not connected')
+                    self.status_text.SetForegroundColour('white')
+                    self.disconnect_btn.Disable()
+                    wx.MessageBox(f'WalletConnect session has been disconnected.')
+                else:
+                    wx.MessageBox(f'Something went wrong: {e}')
 
     def process_sign_typeddata(self, data_bin):
         print('ProcessSignTypeData')
         """Process a WalletConnect eth_signTypedData call"""
         EIP712_HEADER = b"\x19\x01"
-        print()
         data_obj = json.loads(data_bin)
         chain_id = None
         if "domain" in data_obj and "chainId" in data_obj["domain"]:
@@ -385,8 +395,7 @@ class WalletConnectPanel(wx.Panel):
         return f"0x{self.eth_address}"
 
     def disconnect_dapp(self,event):
-        self.wc_client.close()
-        self.wc_timer.Stop()
+        self.erase_info()
         self.status_text.SetLabel('🔴 Not connected')
         self.status_text.SetForegroundColour('white')
         self.disconnect_btn.Disable()
@@ -421,7 +430,7 @@ class WalletConnectPanel(wx.Panel):
         }
         wc_uri = self.url_field.GetValue().strip()
         try:
-            pin_result = ask(message='Please input your card PIN:\nFor default, type \'000000000\'')
+            pin_result = ask(message='Please input your card PIN:\nFor default PIN\'000000000\', press enter.')
             self.pin = '000000000' if pin_result == '' else pin_result
             self.card = cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
             self.card.verify_pin(self.pin)
@@ -456,7 +465,6 @@ class WalletConnectPanel(wx.Panel):
         if approve:
             self.wc_client.reply_session_request(req_id, self.chainID, f"0x{self.eth_address}")
             wx.MessageBox('Wallet has been connected, please continue transaction in DAPP.')
-            self.erase_info()
             self.wc_timer = wx.Timer()
             self.wc_timer.Notify = self.watch_messages
             self.wc_timer.Start(2500, oneShot=wx.TIMER_CONTINUOUS)
