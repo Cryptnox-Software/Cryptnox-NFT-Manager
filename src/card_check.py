@@ -16,16 +16,16 @@ class CardCheckThread(Thread):
             if self.panel.check_card:
                 print('Going in')
                 try:
-                    # if self.panel.check_card:
-                    #     print('Check_card: Connection')
-                    #     conn = cp.Connection()
-                    # if self.panel.check_card:
-                    #     print('Check_card: Card')
-                    #     card_obj = cp.factory.get_card(conn)
+                    if self.panel.check_card:
+                        print('Check_card: Connection')
+                        conn = cp.Connection()
+                    if self.panel.check_card:
+                        print('Check_card: Card')
+                        card_obj = cp.factory.get_card(conn)
                     if self.panel.check_card:
                         print('Check_card: Init')
-                        # cp.factory.get_card(cp.Connection()).check_init()
-                    # message = f'🟢 Card found: {card_obj.serial_number}'
+                        cp.factory.get_card(cp.Connection()).check_init()
+                    message = f'🟢 Card found: {card_obj.serial_number}'
                     message = f'Initialized card found'
                 except Exception as e:
                     if 'initialized' in str(e):
@@ -38,9 +38,9 @@ class CardCheckThread(Thread):
                 if self.panel.check_card:
                     print('Check_card: Publish message')
                     wx.CallAfter(pub.sendMessage, "update_status", data=message)
-                # print('Deleting check card')
-                # del conn
-                # del card_obj
+                print('Deleting check card')
+                del conn
+                del card_obj
                 print('sleeping')
                 time.sleep(0.5)
             else:

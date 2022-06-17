@@ -264,6 +264,9 @@ class CardLoadPanel(ScrolledPanel):
 
 
 
+    def export(self,event):
+        print('Export')
+
     def edit_metadata_click(self,event):
         print('MetaClicked')
         EditBox(self,'Metadata',self.Parent.FindWindowById(8))
@@ -371,7 +374,10 @@ class CardLoadPanel(ScrolledPanel):
             wx.CallAfter(pub.sendMessage,"start_check_card")
         except Exception as e:
             print(f'Error getting card info: {e}')
-            wx.MessageBox(f"Could not get info from card, please ensure card is initialized.", "Error" ,wx.OK | wx.ICON_WARNING)
+            if 'Connection' in str(e):
+                wx.MessageBox(f"Could not get info from card, please ensure card is initialized.", "Error" ,wx.OK | wx.ICON_WARNING)
+            else:    
+                wx.MessageBox(f"Could not get info from card, please ensure card is initialized.", "Error" ,wx.OK | wx.ICON_WARNING)
             wx.CallAfter(pub.sendMessage,"start_check_card")
 
         
@@ -665,10 +671,14 @@ class CardLoadPanel(ScrolledPanel):
         slots[3] = str(meta).replace('\'','\"')
         
         try:
+            print(f'NFC-Sign: {self.NFC_choice.GetValue()}')
             card.init(data['Name'],data['Mail'],data['PIN'],data['PUK'],nfc_sign=self.NFC_choice.GetValue())
         except Exception as e:
             print(f'Exception in init: {e}')
-            wx.MessageBox(f"Card cannot be initialized.\n\nError Information:\n\nCard is already initialized, please reset the card.", "Error" ,wx.OK | wx.ICON_WARNING)
+            if 'Connection' in str(e):
+                wx.MessageBox(f"Connection Issue.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)    
+            else:
+                wx.MessageBox(f"Card cannot be initialized.\n\nError Information:\n\nCard is already initialized, please reset the card.", "Error" ,wx.OK | wx.ICON_WARNING)
             wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         try:
@@ -744,8 +754,11 @@ class CardLoadPanel(ScrolledPanel):
         try:
             metadata_json = eval(v)
             image_url = metadata_json['image_url'] if 'image_url' in metadata_json.keys() else metadata_json['image']
-            split_url = image_url.split('/')
-            url = f"https://opengateway.mypinata.cloud/ipfs/{split_url[-2]}/{split_url[-1]}"
+            if 'ipfs' in image_url:
+                split_url = image_url.split('/')
+                url = f"https://opengateway.mypinata.cloud/ipfs/{split_url[-2]}/{split_url[-1]}"
+            else:
+                url = image_url
             self.fetch_nft(url)
         except Exception as e:  
             print(f'Not downloading NFT:{e}')
@@ -761,11 +774,12 @@ class CardLoadPanel(ScrolledPanel):
         try:
             print(f'Downloaded')
             file_type = filetype.guess(data).mime
-            if not file_type.startswith('image'):
+            if not file_type.startswith('image') and file_type != 'video/mp4':
                 wx.MessageBox(f"File format not recognized, preview unavailable", "Error" ,wx.OK | wx.ICON_INFORMATION)
                 return
-            if file_type.endswith('gif'):
-                self.show_nft('gif',data)
+            if file_type.endswith('gif') or file_type == 'video/mp4':
+                print(file_type[-3:])
+                self.show_nft(file_type[-3:],data)
             else:
                 self.show_nft('image',data)
         except Exception as e:
@@ -773,13 +787,16 @@ class CardLoadPanel(ScrolledPanel):
 
     def show_nft(self,nft_type,data):
         self.nft_sizer.Clear(1)
-        if nft_type == 'gif':
-            ft = tempfile.NamedTemporaryFile(delete=False, suffix=".gif")
+        if nft_type == 'gif' or nft_type == 'mp4':
+            ft = tempfile.NamedTemporaryFile(delete=False, suffix=f".{nft_type}")
             ft.write(data)
             ft.flush()
             ft.close()
-            self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,0), size=(250,250))
-            # print(self.col_sizer_2.GetSize())
+            if nft_type == 'mp4':
+                print(f'WMP10 backend added')
+                self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,0), size=(250,250),szBackend=wx.media.MEDIABACKEND_WMP10)
+            else:
+                self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,0), size=(250,250))
             self.anim.Bind(media.EVT_MEDIA_LOADED, self.on_media_loaded)
             self.anim.Bind(media.EVT_MEDIA_FINISHED,self.on_media_finished)
             self.anim.Load(ft.name)

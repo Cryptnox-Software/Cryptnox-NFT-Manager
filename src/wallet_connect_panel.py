@@ -77,10 +77,10 @@ class WalletConnectPanel(wx.Panel):
         main_sizer.Add(row_sizer,1,wx.EXPAND)
         
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        connect_btn = wx.Button(self,label='Connect',size=(150,40))
-        connect_btn.Bind(wx.EVT_BUTTON,self.connect_dapp)
+        self.connect_btn = wx.Button(self,label='Connect',size=(150,40))
+        self.connect_btn.Bind(wx.EVT_BUTTON,self.connect_dapp)
 
-        row_sizer.Add(connect_btn,1,wx.ALL,border=5)
+        row_sizer.Add(self.connect_btn,1,wx.ALL,border=5)
 
         self.disconnect_btn = wx.Button(self,label='Disconnect',size=(150,40))
         self.disconnect_btn.Bind(wx.EVT_BUTTON,self.disconnect_dapp)
@@ -89,6 +89,7 @@ class WalletConnectPanel(wx.Panel):
         row_sizer.Add(self.disconnect_btn,1,wx.ALL,border=5)
 
         main_sizer.Add(row_sizer,1,wx.EXPAND)
+        
 
         self.SetSizerAndFit(main_sizer)
 
@@ -102,6 +103,7 @@ class WalletConnectPanel(wx.Panel):
         del self.wc_client
         del self.wc_timer
         self.Parent.Refresh()
+        self.connect_btn.Enable()
             
 
     def watch_messages(self):
@@ -136,6 +138,9 @@ class WalletConnectPanel(wx.Panel):
             hash_sign = sha3(msg_header + data_bin)
             print(hash_sign)
             der_signature = self.card.sign(hash_sign,pin=self.pin)
+            print('===============')
+            print(f'Hash:==>{hash_sign}<==')
+            print('===============')
             print(der_signature)
             print(self.card.get_public_key(hexed=False))
             return encode_datasign(hash_sign, der_signature,self.card.get_public_key(hexed=False))
@@ -401,6 +406,21 @@ class WalletConnectPanel(wx.Panel):
         self.disconnect_btn.Disable()
         wx.MessageBox('Walletconnect has been disconnected.')
 
+    def get_cryptnox_card(self):
+        index = 0
+        card = None
+        while index < 5:
+            print(f'Getting card index: ({index})')
+            try:
+                conn = cryptnoxpy.Connection(index)
+                card = cryptnoxpy.factory.get_card(conn)
+                return card
+            except Exception as e:
+                print(f'Get card error on index ({index}): {e}')
+            index+=1
+        return card
+        
+
     def connect_dapp(self,event):
         INFURA_KEY = 'ac389dd3ded74e4a85cc05c8927825e8'
         self.decimals = self.get_decimals()
@@ -430,9 +450,13 @@ class WalletConnectPanel(wx.Panel):
         }
         wc_uri = self.url_field.GetValue().strip()
         try:
+            card = self.get_cryptnox_card()
+            if card == None:
+                wx.MessageBox('No card found, please ensure device is connected.')
+                return
+            self.card = card
             pin_result = ask(message='Please input your card PIN:\nFor default PIN\'000000000\', press enter.')
             self.pin = '000000000' if pin_result == '' else pin_result
-            self.card = cryptnoxpy.factory.get_card(cryptnoxpy.Connection())
             self.card.verify_pin(self.pin)
             self.pubkey = self.card.get_public_key(hexed=False)
             print(rpc_endpoint)
@@ -470,6 +494,7 @@ class WalletConnectPanel(wx.Panel):
             self.wc_timer.Start(2500, oneShot=wx.TIMER_CONTINUOUS)
             self.status_text.SetLabel('🟢 Connected to DAPP')
             self.status_text.SetForegroundColour('green')
+            self.connect_btn.Disable()
             self.url_field.SetValue('')
             self.disconnect_btn.Enable()
         else:
