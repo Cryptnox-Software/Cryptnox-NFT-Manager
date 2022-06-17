@@ -8,11 +8,13 @@ class DownloadThread(Thread):
         super(DownloadThread, self).__init__()
         self.panel = panel
         self.url: str = image_url
+        self.panel.download_progress = 0
         self.start()
 
     def run(self):
         header = requests.head(self.url)
         self.file_size = int(int(header.headers["content-length"]) / 1024)
+        wx.CallAfter(pub.sendMessage,"show_gauge",data=self.file_size)
         self.data = b""
         try:
             print(f'Starting download thread')
@@ -23,10 +25,12 @@ class DownloadThread(Thread):
                     self.data += byte
                 total_size += len(byte)
                 if total_size/1024 <= self.file_size:
-                    download_progress = total_size/1024
-                    total_file_size = self.file_size
-                    progress = (download_progress/total_file_size)*100
+                    self.panel.download_progress = total_size/1024
+                    self.panel.gauge.setValue(total_size/1024)
+                    progress = ((total_size/1024)/self.file_size)*100
+                    wx.CallAfter(pub.sendMessage, "update_gauge",data=progress)
                     print(f'Downloading: {progress}')
+            self.panel.gauge.setValue(0)
             wx.CallAfter(pub.sendMessage, "downloaded", data=self.data)
         except Exception as e:
             print(f'Exception in downloading: {e}')

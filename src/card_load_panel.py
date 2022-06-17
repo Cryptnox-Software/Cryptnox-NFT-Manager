@@ -16,6 +16,7 @@ import utils
 import json
 from wx.lib.scrolledpanel import ScrolledPanel
 import time
+from arc_gauge import ArcGauge
 
 
 
@@ -240,11 +241,12 @@ class CardLoadPanel(ScrolledPanel):
 
         pub.subscribe(self.downloaded, "downloaded")
 
-        self.Parent.FindWindowById(8).Bind(wx.EVT_TEXT,self.metedata_changed)
+        self.Parent.FindWindowById(8).Bind(wx.EVT_TEXT,self.metadata_changed)
 
         '''
         Colsizer 3 - Right
         '''
+
         nft_box = wx.StaticBox(self,-1,'NFT PREVIEW AREA')
         self.nft_sizer = wx.StaticBoxSizer(nft_box,wx.VERTICAL)
 
@@ -261,6 +263,9 @@ class CardLoadPanel(ScrolledPanel):
         self.manual_abi_sizer.Hide(0)
         self.manual_abi_sizer.Hide(1)
         self.manual_abi_sizer.Hide(2)
+
+        pub.subscribe(self.update_gauge, "update_gauge")
+        pub.subscribe(self.show_gauge, "show_gauge")
 
 
 
@@ -748,8 +753,30 @@ class CardLoadPanel(ScrolledPanel):
             wx.CallAfter(pub.sendMessage,"start_check_card")
             return
 
+    def show_gauge(self,data):
+        self.nft_sizer.Clear(1)
+        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.gauge = ArcGauge(self,size=(150,150))
+        row_sizer.AddSpacer(50)
+        row_sizer.Add(self.gauge,0,wx.ALIGN_CENTER_VERTICAL)
+        row_sizer.AddSpacer(50)
+        self.nft_sizer.AddSpacer(50)
+        self.nft_sizer.Add(row_sizer,0,wx.EXPAND)
+        self.nft_sizer.AddSpacer(50)
+        self.gauge.setRange(0,data)
+        self.gauge.Show()
+        self.Layout()
 
-    def metedata_changed(self,event):
+    def hide_gauge(self):
+        self.gauge.SetValue(0)
+        self.gauge.Hide()
+        self.nft_sizer_reset()
+        self.Layout()
+
+    def update_gauge(self,data):
+        self.gauge.setText=f"{data}%"
+
+    def metadata_changed(self,event):
         v = self.Parent.FindWindowById(8).GetValue()
         try:
             metadata_json = eval(v)
@@ -771,6 +798,7 @@ class CardLoadPanel(ScrolledPanel):
         # wx.MessageBox(f"NFT preview will be available shortly.", "Error" ,wx.OK | wx.ICON_INFORMATION)
 
     def downloaded(self, data):
+        self.hide_gauge()
         try:
             print(f'Downloaded')
             file_type = filetype.guess(data).mime
