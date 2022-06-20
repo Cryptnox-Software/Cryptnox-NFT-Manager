@@ -13,7 +13,6 @@ class LogoTabsPanel(wx.Panel):
         top_sizer = wx.BoxSizer(wx.VERTICAL)
 
         #Cryptnox logo on top
-
         path = Path(__file__).parent.joinpath("cryptnox_transparent.png").absolute()
         img = wx.Image(str(path),wx.BITMAP_TYPE_PNG)
         img_size = (200,200)
@@ -34,6 +33,7 @@ class LogoTabsPanel(wx.Panel):
         self.CardLoadTab.Bind(wx.EVT_ENTER_WINDOW,self.card_load_on_mouse_over)
         self.CardLoadTab.Bind(wx.EVT_LEAVE_WINDOW,self.card_load_on_mouse_leave)
         self.CardLoadTab.Bind(wx.EVT_BUTTON,self.card_load_tabbed)
+
         self.WalletConnectTab = wx.Button(self,22,label='Wallet Connect',size=(150,25))
         self.WalletConnectTab.SetFont(font)
         self.WalletConnectTab.SetForegroundColour('white')
@@ -41,10 +41,19 @@ class LogoTabsPanel(wx.Panel):
         self.WalletConnectTab.Bind(wx.EVT_ENTER_WINDOW,self.wallet_connect_on_mouse_over)
         self.WalletConnectTab.Bind(wx.EVT_LEAVE_WINDOW,self.wallet_connect_on_mouse_leave)
         self.WalletConnectTab.Bind(wx.EVT_BUTTON,self.wallet_connect_tabbed)
+        
+        self.CardAdminTab = wx.Button(self,23,label='Card Administration',size=(150,25))
+        self.CardAdminTab.SetFont(font)
+        self.CardAdminTab.SetForegroundColour('white')
+        self.CardAdminTab.SetBackgroundColour('black')
+        self.CardAdminTab.Bind(wx.EVT_ENTER_WINDOW,self.card_admin_on_mouse_over)
+        self.CardAdminTab.Bind(wx.EVT_LEAVE_WINDOW,self.card_admin_on_mouse_leave)
+        self.CardAdminTab.Bind(wx.EVT_BUTTON,self.card_admin_tabbed)
 
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        row_sizer.Add(self.CardLoadTab,1,wx.ALL,border=10)
-        row_sizer.Add(self.WalletConnectTab,1,wx.ALL,border=10)
+        row_sizer.Add(self.CardLoadTab,0,wx.ALL,border=10)
+        row_sizer.Add(self.WalletConnectTab,0,wx.ALL,border=10)
+        row_sizer.Add(self.CardAdminTab,0,wx.ALL,border=10)
         
         top_sizer.Add(row_sizer,0,wx.ALIGN_CENTER_HORIZONTAL)
         
@@ -53,12 +62,20 @@ class LogoTabsPanel(wx.Panel):
     def card_load_tabbed(self,event):
         self.CardLoadTab.SetBackgroundColour(wx.Colour(75,75,75,255))
         self.WalletConnectTab.SetBackgroundColour('black')
+        self.CardAdminTab.SetBackgroundColour('black')
         self.GetParent().CardLoadTabPressed(event)
 
     def wallet_connect_tabbed(self,event):
-        self.CardLoadTab.SetBackgroundColour('black')
         self.WalletConnectTab.SetBackgroundColour(wx.Colour(75,75,75,255))
+        self.CardLoadTab.SetBackgroundColour('black')
+        self.CardAdminTab.SetBackgroundColour('black')
         self.GetParent().WalletConnectTabPressed(event)
+
+    def card_admin_tabbed(self,event):
+        self.CardAdminTab.SetBackgroundColour(wx.Colour(75,75,75,255))
+        self.CardLoadTab.SetBackgroundColour('black')
+        self.WalletConnectTab.SetBackgroundColour('black')
+        self.GetParent().CardAdminTabPressed(event)
 
     def card_load_on_mouse_over(self,event):
         self.CardLoadTab.SetForegroundColour('black')
@@ -71,3 +88,9 @@ class LogoTabsPanel(wx.Panel):
 
     def wallet_connect_on_mouse_leave(self,event):
         self.WalletConnectTab.SetForegroundColour('white')
+
+    def card_admin_on_mouse_over(self,event):
+        self.CardAdminTab.SetForegroundColour('black')
+
+    def card_admin_on_mouse_leave(self,event):
+        self.CardAdminTab.SetForegroundColour('white')

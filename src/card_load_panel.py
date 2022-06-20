@@ -275,12 +275,10 @@ class CardLoadPanel(ScrolledPanel):
     def edit_metadata_click(self,event):
         print('MetaClicked')
         EditBox(self,'Metadata',self.Parent.FindWindowById(8))
-        pass
 
     def edit_abi_click(self,event):
         print('ABIClicked')
         EditBox(self,'ABI',self.manual_ABI,read_only=True)
-        pass
 
 
     def clear_fields(self,event):

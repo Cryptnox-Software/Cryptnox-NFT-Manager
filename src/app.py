@@ -1,6 +1,7 @@
 import wx
 from card_load_panel import CardLoadPanel
 from logo_tabs_panel import LogoTabsPanel
+from card_admin_panel import CardAdminPanel
 from buttons_panel import ButtonsPanel
 from wallet_connect_panel import WalletConnectPanel
 from pubsub import pub
@@ -21,22 +22,35 @@ class NFT_CardManager_Frame(wx.Frame):
         main_sizer.Add(ButtonsPanel(self,-1),0,wx.EXPAND)
         main_sizer.Add(WalletConnectPanel(self,-1),0,wx.ALIGN_CENTER_HORIZONTAL)
         main_sizer.AddSpacer(10)
+        main_sizer.Add(CardAdminPanel(self,-1),0,wx.ALIGN_CENTER_HORIZONTAL)
+        main_sizer.AddSpacer(10)
 
         self.Bind(wx.EVT_CLOSE,self.on_close)
         self.GetChildren()[3].Hide()
+        self.GetChildren()[4].Hide()
         self.SetSizerAndFit(main_sizer)
         self.Show(1)
 
     def CardLoadTabPressed(self,event):
-        self.GetChildren()[3].Hide()
+        self.GetChildren()[4].Hide()
         self.GetChildren()[2].Show()
+        self.GetChildren()[3].Hide()
         self.GetChildren()[0].Show()
         self.Layout()
 
     def WalletConnectTabPressed(self,event):
-        self.GetChildren()[0].Hide()
+        self.GetChildren()[4].Hide()
         self.GetChildren()[2].Hide()
         self.GetChildren()[3].Show()
+        self.GetChildren()[0].Hide()
+        self.Layout()
+
+    def CardAdminTabPressed(self,event):
+        print('CardAdminTabbed')
+        self.GetChildren()[4].Show()
+        self.GetChildren()[2].Hide()
+        self.GetChildren()[3].Hide()
+        self.GetChildren()[0].Hide()
         self.Layout()
 
     def on_close(self,event):

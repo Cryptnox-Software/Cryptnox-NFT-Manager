@@ -15,6 +15,8 @@ from ECP256k1 import ECPoint,inverse_mod
 from decimal import DefaultContext, Decimal
 from pprint import pformat
 from sys import version_info
+from eth_utils.curried import keccak as eth_keccak
+from web3 import Web3
 
 HexStr = NewType('HexStr', str)
 HexAddress = NewType('HexAddress', HexStr)
@@ -30,6 +32,27 @@ uint_types = [f"uint{type_len}" for type_len in range(8, 257)]
 int_types = [f"int{type_len}" for type_len in range(8, 257)]
 bytes_types = [f"bytes{type_len}" for type_len in range(1, 33)]
 std_types = ["bool", *uint_types, *int_types, "address", *bytes_types, "bytes", "string"]
+
+def address(public_key: str) -> str:
+    return eth_keccak(hexstr=("0x" + public_key[2:]))[-20:].hex()
+
+
+def checksum_address(public_key: str) -> str:
+    return Web3.toChecksumAddress(address(public_key))
+
+def get_cryptnox_card():
+        index = 0
+        card = None
+        while index < 5:
+            print(f'Getting card index: ({index})')
+            try:
+                conn = cryptnoxpy.Connection(index)
+                card = cryptnoxpy.factory.get_card(conn)
+                return card
+            except Exception as e:
+                print(f'Get card error on index ({index}): {e}')
+            index+=1
+        return card
 
 def _private_key_check(card: cryptnoxpy.Card, public_key: bytes):
         print("Checking private key on the card...")
@@ -165,8 +188,14 @@ def sha2(raw_message):
 
 def ask(parent=None, message=''):
     dlg = wx.TextEntryDialog(parent, message)
-    dlg.ShowModal()
-    result = dlg.GetValue()
+    action = dlg.ShowModal()
+    if action == 5100:
+        result = dlg.GetValue()
+    elif action == 5101:
+        result = None
+    else:
+        print('Unknown action')
+    print(result)
     dlg.Destroy()
     return result
 
