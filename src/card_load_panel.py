@@ -379,7 +379,10 @@ class CardLoadPanel(ScrolledPanel):
         except Exception as e:
             print(f'Error getting card info: {e}')
             if 'Connection' in str(e):
-                wx.MessageBox(f"Could not get info from card, please ensure card is initialized.", "Error" ,wx.OK | wx.ICON_WARNING)
+                if pin:
+                    wx.MessageBox(f"Could not get info from card due to connection loss. But Card has been initialized and ready for use.", "Error" ,wx.OK | wx.ICON_WARNING)
+                else:
+                    wx.MessageBox(f"Could not get info from card, please ensure card is initialized.", "Error" ,wx.OK | wx.ICON_WARNING)
             else:    
                 wx.MessageBox(f"Could not get info from card, please ensure card is initialized.", "Error" ,wx.OK | wx.ICON_WARNING)
             wx.CallAfter(pub.sendMessage,"start_check_card")
@@ -465,6 +468,15 @@ class CardLoadPanel(ScrolledPanel):
         self.Parent.FindWindowById(6).SetValue(data['contract_address'])
         self.Parent.FindWindowById(7).SetValue(data['nft_id'])
         self.Parent.FindWindowById(8).SetValue(str(data['metadata']))
+
+        self.ABI_chooser.SetStringSelection('Manual')
+        self.manual_abi_sizer.Show(0)
+        self.manual_abi_sizer.Show(1)
+        self.manual_abi_sizer.Show(2)
+        self.Layout()
+        
+        self.manual_ABI.SetValue(str(data['ABI']))
+        self.manual_ABI.Disable()
 
     def file_picked(self,event: wx.EVT_FILEPICKER_CHANGED):
         path_picked = self.file_picker.GetPath()
@@ -757,18 +769,19 @@ class CardLoadPanel(ScrolledPanel):
     def reset_card(self,event):
         try:
             card = self.get_card()
-            puk = utils.ask(message='Please input your PUK to reset:')
-            if puk:
-                confirm = utils.confirm(message='This will reset the card, are you sure ?')
-                if confirm == 5100:
-                    # wx.CallAfter(pub.sendMessage,"pause_check_card")
-                    pub.sendMessage("pause_check_card")
-                    time.sleep(1)
-                    card.reset(puk)
-                    wx.MessageBox(f"Card has been reset.", "Info" ,wx.OK | wx.ICON_INFORMATION)
-                    wx.CallAfter(pub.sendMessage,"start_check_card")
-                else:
-                    return
+            puk_result = utils.ask(message='Please input your PUK to reset:\n\nFor EASY PUK "000000000000", press enter.')
+            if type(puk_result) != str:
+                return
+            puk = '000000000000' if puk_result == '' else puk_result
+            confirm = utils.confirm(message='This will reset the card, are you sure ?')
+            if confirm == 5100:
+                # wx.CallAfter(pub.sendMessage,"pause_check_card")
+                pub.sendMessage("pause_check_card")
+                card.reset(puk)
+                wx.MessageBox(f"Card has been reset.", "Info" ,wx.OK | wx.ICON_INFORMATION)
+                wx.CallAfter(pub.sendMessage,"start_check_card")
+            else:
+                return
         except Exception as e:
             wx.MessageBox(f"Error resetting card:\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_INFORMATION)
             wx.CallAfter(pub.sendMessage,"start_check_card")

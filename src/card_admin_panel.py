@@ -34,6 +34,15 @@ class CardAdminPanel(wx.Panel):
         
         pin_sizer.Add(title_text,0,wx.ALIGN_CENTER)
         pin_sizer.AddSpacer(30)
+        path = Path(__file__).parent.joinpath("pin_icon.png").absolute()
+        img = wx.Image(str(path),wx.BITMAP_TYPE_PNG)
+        img_size = (50,50)
+        img = img.Scale(int(img_size[0]),int(img_size[1]),wx.IMAGE_QUALITY_HIGH)
+        img = img.ConvertToBitmap()
+        image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
+
+        pin_sizer.Add(image,0,wx.ALIGN_CENTER_HORIZONTAL)
+        pin_sizer.AddSpacer(10)
         pin_sizer.Add(row_sizer,0)
 
 
@@ -55,6 +64,15 @@ class CardAdminPanel(wx.Panel):
 
         puk_sizer.Add(title_text,0,wx.ALIGN_CENTER)
         puk_sizer.AddSpacer(30)
+        path = Path(__file__).parent.joinpath("puk_icon.png").absolute()
+        img = wx.Image(str(path),wx.BITMAP_TYPE_PNG)
+        img_size = (50,50)
+        img = img.Scale(int(img_size[0]),int(img_size[1]),wx.IMAGE_QUALITY_HIGH)
+        img = img.ConvertToBitmap()
+        image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
+
+        puk_sizer.Add(image,0,wx.ALIGN_CENTER_HORIZONTAL)
+        puk_sizer.AddSpacer(10)
         puk_sizer.Add(row_sizer,0)
 
 
@@ -77,7 +95,17 @@ class CardAdminPanel(wx.Panel):
 
         data_sizer.Add(title_text,0,wx.ALIGN_CENTER)
         data_sizer.AddSpacer(30)
+        path = Path(__file__).parent.joinpath("pdf_icon.png").absolute()
+        img = wx.Image(str(path),wx.BITMAP_TYPE_PNG)
+        img_size = (50,50)
+        img = img.Scale(int(img_size[0]),int(img_size[1]),wx.IMAGE_QUALITY_HIGH)
+        img = img.ConvertToBitmap()
+        image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
+
+        data_sizer.Add(image,0,wx.ALIGN_CENTER_HORIZONTAL)
+        data_sizer.AddSpacer(10)
         data_sizer.Add(row_sizer,0)
+        data_sizer.AddSpacer(30)
 
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
         json_template = wx.Button(self,-1,label="JSON Template",size=(100,30))
@@ -88,6 +116,15 @@ class CardAdminPanel(wx.Panel):
         row_sizer.Add(export_json,0,wx.ALL,border=5)
 
         # data_sizer.AddSpacer(5)
+        path = Path(__file__).parent.joinpath("json_icon.png").absolute()
+        img = wx.Image(str(path),wx.BITMAP_TYPE_PNG)
+        img_size = (50,50)
+        img = img.Scale(int(img_size[0]),int(img_size[1]),wx.IMAGE_QUALITY_HIGH)
+        img = img.ConvertToBitmap()
+        image = wx.StaticBitmap(self, wx.ID_ANY, img, (0,0))
+
+        data_sizer.Add(image,0,wx.ALIGN_CENTER_HORIZONTAL)
+        data_sizer.AddSpacer(10)
         data_sizer.Add(row_sizer,0)
 
         main_sizer.Add(data_sizer,0)
@@ -277,9 +314,11 @@ class CardAdminPanel(wx.Panel):
                 for i in range(0,4):
                     data.append(gzip.decompress(card.user_data[i]))
                 data = [json.loads(x.decode('UTF-8')) if x != b'' else '' for x in data]
+                print(data)
                 json_data = data[0]
                 json_data['field_1'] = card.info['name']
                 json_data['field_2'] = card.info['email']
+                json_data['ABI'] = data[2]
                 json_data['metadata'] = data[3]
                 fdlg = wx.FileDialog(self, "Select where to save file:", "", f"NFTData_{card.serial_number}", "Text files(*.txt)|*.*", wx.FD_SAVE)
                 if fdlg.ShowModal() == wx.ID_OK:
@@ -308,12 +347,45 @@ class ViewJSONDialog(wx.Dialog):
         window = wx.ScrolledWindow(self,-1,size=(400,400))
         main_sizer.Add(window,1,wx.EXPAND)
         self.json_data = {
-            'field_1':'Sample Name',
-            'field_2':'Sample@mail.com',
-            'endpoint':'Polygon',
+            'endpoint':'https://endpoint-rpc.com',
+            'chain_id':123,
             'contract_address':'0x1a2b3c4d5e6f',
             'nft_id':'12345',
-            'metadata':{'image_url':'https://link/to/image'},
+            'field_1':'Sample Name',
+            'field_2':'Sample@mail.com',
+            'ABI':[
+                    {
+                        "inputs": [
+                            {
+                                "internalType": "string",
+                                "name": "_name",
+                                "type": "string"
+                            },
+                            {
+                                "internalType": "string",
+                                "name": "_symbol",
+                                "type": "string"
+                            },
+                            {
+                                "internalType": "address",
+                                "name": "_proxyRegistryAddress",
+                                "type": "address"
+                            },
+                            {
+                                "internalType": "string",
+                                "name": "_templateURI",
+                                "type": "string"
+                            },
+                            {
+                                "internalType": "address",
+                                "name": "_migrationAddress",
+                                "type": "address"
+                            }
+                        ],
+                        "stateMutability": "nonpayable",
+                        "type": "constructor"
+                    }],
+            'metadata':{'image_url':'https://link/to/image'}
 
         }
         self.text = wx.TextCtrl(window,style=wx.TE_MULTILINE | wx.TE_READONLY,size=(400,400))
@@ -330,7 +402,7 @@ class ViewJSONDialog(wx.Dialog):
 
     def generate_file(self,event):
         print('Save JSON')
-        fdlg = wx.FileDialog(self, "Select where to save file:", "", f"JSON Template", "Text files(*.txt)|*.*", wx.FD_SAVE)
+        fdlg = wx.FileDialog(self, "Select where to save file:", "", f"NFT JSON Template", "Text files(*.txt)|*.*", wx.FD_SAVE)
         if fdlg.ShowModal() == wx.ID_OK:
             save_path = fdlg.GetPath() + ".txt"
         else:
