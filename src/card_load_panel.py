@@ -305,6 +305,7 @@ class CardLoadPanel(ScrolledPanel):
             self.manual_abi_sizer.Hide(1)
             self.manual_abi_sizer.Hide(2)
             self.manual_ABI.SetEditable(False)
+            self.file_picker.Refresh()
             self.ABI_chooser.Enable()
             self.Layout()
             self.ABI_chooser.SetStringSelection('Automatic')
@@ -452,11 +453,32 @@ class CardLoadPanel(ScrolledPanel):
             self.manual_abi_sizer.Hide(2)
             self.Layout()
 
+    def populate_fields(self,file_type,data):
+        self.Parent.FindWindowById(1).SetValue(data['field_1'])
+        self.Parent.FindWindowById(2).SetValue(data['field_2'])
+        endpoint = 'Polygon' if 'polygon' in data['endpoint'] else 'Ethereum'
+        for k,v in self.endpoint_urls.items():
+            if v == data['endpoint']:
+                endpoint_choice = f'{k}: {v}'
+        self.endpoint_choice.SetStringSelection(endpoint_choice)
+        self.Parent.FindWindowById(5).SetValue(self.chains[endpoint]['id']+' ('+self.chains[endpoint]['name']+')')
+        self.Parent.FindWindowById(6).SetValue(data['contract_address'])
+        self.Parent.FindWindowById(7).SetValue(data['nft_id'])
+        self.Parent.FindWindowById(8).SetValue(str(data['metadata']))
+
     def file_picked(self,event: wx.EVT_FILEPICKER_CHANGED):
-        path_picked = self.file_picker.GetPath() 
-        print(path_picked[-3:] == 'txt')
-        print('NFT' in path_picked)   
+        path_picked = self.file_picker.GetPath()
+        print(path_picked)
         if path_picked[-3:] == 'txt' and 'NFT' in path_picked:
+            try:
+                with open(path_picked,'r',encoding='utf-8') as file:
+                    json_data = json.load(file)
+                print(json_data)
+                self.populate_fields('json',json_data)
+                return
+            except Exception as e:
+                print(e)
+                pass
             try:
                 with open(path_picked,'r') as file:
                     lines = file.readlines()
@@ -635,7 +657,8 @@ class CardLoadPanel(ScrolledPanel):
             slot_data.append(value)
         slot_data.append(self.manual_ABI.GetValue())
         d = {}
-        d['endpoint'] = self.endpoint_urls[self.endpoint_choice.GetStringSelection().split(':')[0]]
+        endpoint = self.endpoint_choice.GetStringSelection().split(':')[0]
+        d['endpoint'] = self.endpoint_urls[endpoint]
         d['chain_id'] = int(self.chains[self.endpoint_choice.GetStringSelection().split(':')[0]]['id'])
         print(d['chain_id'])
         d['contract_address'] = Web3.toChecksumAddress(slot_data[1])
@@ -645,7 +668,6 @@ class CardLoadPanel(ScrolledPanel):
         d = {}
         if slot_data[4] == '':
             print(f'Getting ABI')
-            endpoint = self.endpoint_choice.GetStringSelection()
             contract_address = slot_data[1]
             ABI_resp = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
             if ABI_resp == '':
@@ -677,11 +699,12 @@ class CardLoadPanel(ScrolledPanel):
             print(f'NFC-Sign: {self.NFC_choice.GetValue()}')
             card.init(data['Name'],data['Mail'],data['PIN'],data['PUK'],nfc_sign=self.NFC_choice.GetValue())
         except Exception as e:
-            print(f'Exception in init: {e}')
+            print(f'Exception in init: {e}\n\nPlease reset the card and try again.')
             if 'Connection' in str(e):
                 wx.MessageBox(f"Connection Issue.\n\nError Information:\n\n{e}", "Error" ,wx.OK | wx.ICON_WARNING)    
             else:
                 wx.MessageBox(f"Card cannot be initialized.\n\nError Information:\n\nCard is already initialized, please reset the card.", "Error" ,wx.OK | wx.ICON_WARNING)
+                print(e)
             wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         try:

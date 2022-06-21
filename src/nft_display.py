@@ -29,7 +29,6 @@ class DownloadThread(Thread):
                     self.panel.gauge.setValue(total_size/1024)
                     progress = ((total_size/1024)/self.file_size)*100
                     wx.CallAfter(pub.sendMessage, "update_gauge",data=progress)
-                    print(f'Downloading: {progress}')
             self.panel.gauge.setValue(0)
             wx.CallAfter(pub.sendMessage, "downloaded", data=self.data)
         except Exception as e:
