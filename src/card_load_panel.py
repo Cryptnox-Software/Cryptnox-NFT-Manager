@@ -470,7 +470,7 @@ class CardLoadPanel(ScrolledPanel):
         self.manual_abi_sizer.Show(2)
         self.Layout()
         
-        self.manual_ABI.SetValue(str(data['ABI']))
+        self.manual_ABI.SetValue(json.dumps(data['ABI']))
         self.manual_ABI.Disable()
 
     def file_picked(self,event: wx.EVT_FILEPICKER_CHANGED):
