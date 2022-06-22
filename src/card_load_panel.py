@@ -267,11 +267,6 @@ class CardLoadPanel(ScrolledPanel):
         pub.subscribe(self.update_gauge, "update_gauge")
         pub.subscribe(self.show_gauge, "show_gauge")
 
-
-
-    def export(self,event):
-        print('Export')
-
     def edit_metadata_click(self,event):
         print('MetaClicked')
         EditBox(self,'Metadata',self.Parent.FindWindowById(8))
@@ -467,7 +462,7 @@ class CardLoadPanel(ScrolledPanel):
         self.Parent.FindWindowById(5).SetValue(self.chains[endpoint]['id']+' ('+self.chains[endpoint]['name']+')')
         self.Parent.FindWindowById(6).SetValue(data['contract_address'])
         self.Parent.FindWindowById(7).SetValue(data['nft_id'])
-        self.Parent.FindWindowById(8).SetValue(str(data['metadata']))
+        self.Parent.FindWindowById(8).SetValue(json.dumps(data['metadata']))
 
         self.ABI_chooser.SetStringSelection('Manual')
         self.manual_abi_sizer.Show(0)
@@ -480,12 +475,10 @@ class CardLoadPanel(ScrolledPanel):
 
     def file_picked(self,event: wx.EVT_FILEPICKER_CHANGED):
         path_picked = self.file_picker.GetPath()
-        print(path_picked)
         if path_picked[-3:] == 'txt' and 'NFT' in path_picked:
             try:
                 with open(path_picked,'r',encoding='utf-8') as file:
                     json_data = json.load(file)
-                print(json_data)
                 self.populate_fields('json',json_data)
                 return
             except Exception as e:
@@ -500,11 +493,6 @@ class CardLoadPanel(ScrolledPanel):
                 lines= [x.strip() for x in lines]
                 while '' in lines:
                     lines.remove('')
-                print(len(lines))
-                for each in lines:
-                    print(f'===================================')
-                    print(each)
-                    print(f'===================================')
                 l.append(lines[4].strip()) #chain_id
                 l.append(lines[6].strip()) #contract_address
                 l.append(lines[8].strip()) #token_id
@@ -567,16 +555,14 @@ class CardLoadPanel(ScrolledPanel):
         metadata = False
         try:
             nftport_url = f"https://api.nftport.xyz/v0/nfts/{contract_address}/{token_id}"
-            print(nftport_url)
             querystring = {"chain":endpoint.lower(),"refresh_metadata":"false"}
             headers = {
                 'Content-Type': "application/json",
                 'Authorization': self.metadata_apikeys['nftport']
             }
             nftport_response = requests.request("GET",nftport_url,headers=headers,params=querystring)
-            print(nftport_response.text)
-            metadata = nftport_response.json()['nft']['metadata']
-            self.Parent.FindWindowById(8).SetValue(str(metadata))
+            metadata = json.dumps(nftport_response.json()['nft']['metadata'])
+            self.Parent.FindWindowById(8).SetValue(metadata)
         except Exception as e:
             print(f'Error fetching metadata: {e}')
             self.Parent.FindWindowById(8).Enable()
@@ -610,9 +596,7 @@ class CardLoadPanel(ScrolledPanel):
     def fetch_ABI(self,url,contract_address,api_key):
         try:
             response = requests.get(url+f'&address={contract_address}'+f'&apikey={api_key}')
-            print(url+f'&address={contract_address}'+f'&apikey={api_key}')
             resp = response.json()['result']            
-            print(response.status_code)
             if response.status_code >= 400 or 'Invalid' in resp or 'verified' in resp:
                 raise Exception(resp)
             self.manual_ABI.SetEditable(False)
@@ -666,24 +650,24 @@ class CardLoadPanel(ScrolledPanel):
         for x in range(5,9):
             field = self.Parent.FindWindowById(x)
             value = field.GetValue()
-            slot_data.append(value)
+            if x == 8:
+                slot_data.append(json.loads(value))
+            else:
+                slot_data.append(value)
         slot_data.append(self.manual_ABI.GetValue())
         d = {}
         endpoint = self.endpoint_choice.GetStringSelection().split(':')[0]
         d['endpoint'] = self.endpoint_urls[endpoint]
         d['chain_id'] = int(self.chains[self.endpoint_choice.GetStringSelection().split(':')[0]]['id'])
-        print(d['chain_id'])
         d['contract_address'] = Web3.toChecksumAddress(slot_data[1])
         d['token_id'] = slot_data[2]
         slots.append(d)
         slots.append('')
         d = {}
         if slot_data[4] == '':
-            print(f'Getting ABI')
             contract_address = slot_data[1]
             ABI_resp = self.fetch_ABI(self.abi_urls[endpoint],contract_address,self.api_keys[endpoint])
             if ABI_resp == '':
-                print('No ABI')
                 return
             d['ABI'] = ABI_resp
         else:
@@ -692,23 +676,25 @@ class CardLoadPanel(ScrolledPanel):
         slots.append(slot_data[3])
         slots[0] = str(slots[0]).replace('\'','\"').replace('token_id','nft_id')
         slots[2] = str(slots[2]).replace('\'','\"')
-        print(slots[3])
-        meta_str = str(slots[3]).replace('\'','\"')
+        meta = slots[3]
         # slots[3] = str(slots[3]).replace('\'','\"')
-        meta = eval(meta_str)
         try:
             meta_url = meta['image_url'].split('/')
             ipfs = 'ipfs' in meta['image_url']
         except KeyError:
             meta_url = meta['image'].split('/')
+            while '' in meta_url:
+                meta_url.remove('')
             ipfs = 'ipfs' in meta['image']
         if ipfs:
-            image_url = f'https://opengateway.mypinata.cloud/ipfs/{meta_url[-2]}/{meta_url[-1]}'
+            if 'ipfs' not in meta_url[-2]:
+                image_url = f"https://opengateway.mypinata.cloud/ipfs/{meta_url[-2]}/{meta_url[-1]}"
+            else:
+                image_url = f"https://opengateway.mypinata.cloud/ipfs/{meta_url[-1]}"
             meta['image_url'] = image_url
-        slots[3] = str(meta).replace('\'','\"')
+        slots[3] = json.dumps(meta)
         
         try:
-            print(f'NFC-Sign: {self.NFC_choice.GetValue()}')
             card.init(data['Name'],data['Mail'],data['PIN'],data['PUK'],nfc_sign=self.NFC_choice.GetValue())
         except Exception as e:
             print(f'Exception in init: {e}\n\nPlease reset the card and try again.')
@@ -727,9 +713,6 @@ class CardLoadPanel(ScrolledPanel):
             wx.CallAfter(pub.sendMessage,"start_check_card")
             return
         try:
-            print('='*12)
-            print(slots)
-            print('='*12)
             for index,value in enumerate(slots):
                 if value:
                     card.user_data[index] = gzip.compress(value.encode("UTF-8"))
@@ -812,29 +795,33 @@ class CardLoadPanel(ScrolledPanel):
 
     def metadata_changed(self,event):
         v = self.Parent.FindWindowById(8).GetValue()
-        try:
-            metadata_json = eval(v)
-            image_url = metadata_json['image_url'] if 'image_url' in metadata_json.keys() else metadata_json['image']
-            if 'ipfs' in image_url:
-                split_url = image_url.split('/')
-                url = f"https://opengateway.mypinata.cloud/ipfs/{split_url[-2]}/{split_url[-1]}"
-            else:
-                url = image_url
-            self.fetch_nft(url)
-        except Exception as e:  
-            print(f'Not downloading NFT:{e}')
+        if v:
+            try:
+                metadata_json = json.loads(v)
+                image_url = metadata_json['image_url'] if 'image_url' in metadata_json.keys() else metadata_json['image']
+                if 'ipfs' in image_url:
+                    split_url = image_url.split('/')
+                    while '' in split_url:
+                        split_url.remove('')
+                    if 'ipfs' not in split_url[-2]:
+                        url = f"https://opengateway.mypinata.cloud/ipfs/{split_url[-2]}/{split_url[-1]}"
+                    else:
+                        url = f"https://opengateway.mypinata.cloud/ipfs/{split_url[-1]}"
+                else:
+                    url = image_url
+                self.fetch_nft(url)
+            except Exception as e:  
+                print(f'Not downloading NFT:{e}')
+                pass
+        else:
             pass
 
     def fetch_nft(self,url):
-        print(f'Fetching NFT: {url}')
         DownloadThread(self,url)
-        # self.preview_text.SetLabel('Loading preview')
-        # wx.MessageBox(f"NFT preview will be available shortly.", "Error" ,wx.OK | wx.ICON_INFORMATION)
 
     def downloaded(self, data):
         self.hide_gauge()
         try:
-            print(f'Downloaded')
             file_type = filetype.guess(data).mime
             if not file_type.startswith('image') and file_type != 'video/mp4':
                 wx.MessageBox(f"File format not recognized, preview unavailable", "Error" ,wx.OK | wx.ICON_INFORMATION)
@@ -855,7 +842,6 @@ class CardLoadPanel(ScrolledPanel):
             ft.flush()
             ft.close()
             if nft_type == 'mp4':
-                print(f'WMP10 backend added')
                 self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,0), size=(250,250),szBackend=wx.media.MEDIABACKEND_WMP10)
             else:
                 self.anim = media.MediaCtrl(self,-1,style=wx.SIMPLE_BORDER,pos=(0,0), size=(250,250))
@@ -865,7 +851,6 @@ class CardLoadPanel(ScrolledPanel):
             self.nft_sizer.Add(self.anim, 0, wx.CENTER, 0)
             self.Layout()
         else:
-            print('Not gif')
             img = wx.Image(io.BytesIO(data)).ConvertToBitmap()
             img = self.scale_bitmap(img, 250, img.GetHeight())
             nft = wx.StaticBitmap(self, -1, img, (0,250))
@@ -900,7 +885,6 @@ class MessageBox(wx.Dialog):
         main_sizer = wx.BoxSizer(wx.VERTICAL)
         window = wx.ScrolledWindow(self,-1,size=(600,600))
         main_sizer.Add(window,1,wx.EXPAND)
-        print(message.split('\n'))
         height = 0
         for each in message.split('\n'):
             text = wx.TextCtrl(window, style=wx.TE_READONLY|wx.BORDER_NONE,pos=(30,height),size=(600,23))
@@ -908,7 +892,6 @@ class MessageBox(wx.Dialog):
             # window.AddChild(text)
             height+=23
         window.SetVirtualSize(600,height)
-        print(window.GetSize())
         window.SetScrollRate(15,15)
         self.SetSizerAndFit(main_sizer)
         self.ShowModal()

@@ -220,7 +220,9 @@ class CardAdminPanel(wx.Panel):
                 data = []
                 for i in range(0,4):
                     data.append(gzip.decompress(card.user_data[i]))
+                print(data[3])
                 data = [json.loads(x.decode('UTF-8')) if x != b'' else '' for x in data]
+                print('JSONLoaded')
                 dialog_data = data[0]
                 dialog_data['image'] = data[3]['image'] if 'image' in data[3].keys() else data[3]['image_url']
                 dialog_data['serial'] = card.serial_number
@@ -416,6 +418,7 @@ class ViewPDFDialog(wx.Dialog):
         super(ViewPDFDialog,self).__init__(parent,title=title)
         self.SetBackgroundColour('white')
         self.SetForegroundColour('black')
+        print('ViewPDFDialog')
 
         LK = {
             'Card serial':'serial',
