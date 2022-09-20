@@ -686,11 +686,12 @@ class CardLoadPanel(ScrolledPanel):
             while '' in meta_url:
                 meta_url.remove('')
             ipfs = 'ipfs' in meta['image']
+        from config import GATEWAY_URL
         if ipfs:
             if 'ipfs' not in meta_url[-2]:
-                image_url = f"https://opengateway.mypinata.cloud/ipfs/{meta_url[-2]}/{meta_url[-1]}"
+                image_url = f"{GATEWAY_URL}/{meta_url[-2]}/{meta_url[-1]}"
             else:
-                image_url = f"https://opengateway.mypinata.cloud/ipfs/{meta_url[-1]}"
+                image_url = f"{GATEWAY_URL}/{meta_url[-1]}"
             meta['image_url'] = image_url
         slots[3] = json.dumps(meta)
         
@@ -803,10 +804,11 @@ class CardLoadPanel(ScrolledPanel):
                     split_url = image_url.split('/')
                     while '' in split_url:
                         split_url.remove('')
+                    from config import GATEWAY_URL
                     if 'ipfs' not in split_url[-2]:
-                        url = f"https://opengateway.mypinata.cloud/ipfs/{split_url[-2]}/{split_url[-1]}"
+                        url = f"{GATEWAY_URL}/{split_url[-2]}/{split_url[-1]}"
                     else:
-                        url = f"https://opengateway.mypinata.cloud/ipfs/{split_url[-1]}"
+                        url = f"{GATEWAY_URL}/{split_url[-1]}"
                 else:
                     url = image_url
                 self.fetch_nft(url)

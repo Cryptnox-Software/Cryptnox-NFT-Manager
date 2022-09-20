@@ -8,6 +8,7 @@ class DownloadThread(Thread):
         super(DownloadThread, self).__init__()
         self.panel = panel
         self.url: str = image_url
+        print(self.url)
         self.panel.download_progress = 0
         self.start()
 
