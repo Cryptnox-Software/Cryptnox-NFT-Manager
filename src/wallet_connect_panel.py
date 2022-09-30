@@ -386,7 +386,7 @@ class WalletConnectPanel(wx.Panel):
             data = bytearray(b"")
         tx_bin, hash_to_sign = self.prepare(account, amount, gazprice, ethgazlimit, data)
         tx_signature = self.card.sign(hash_to_sign,pin=self.pin)
-        return add_signature(tx_signature)
+        return add_signature(self,tx_signature)
 
     def get_decimals(self):
         if self.ERC20:
