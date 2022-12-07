@@ -8,7 +8,7 @@ a = Analysis(
     ['src\\app.py'],
     pathex=[],
     binaries=[],
-    datas=[('.\\src\\*', '.'), ('.\\cryptnox.ico', '.')],
+    datas=[('.\\src\\*', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -37,7 +37,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='cryptnox.ico',
+    icon=['cryptnox.ico'],
 )
 coll = COLLECT(
     exe,
