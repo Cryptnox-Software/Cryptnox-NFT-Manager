@@ -13,11 +13,11 @@ class DownloadThread(Thread):
         self.start()
 
     def run(self):
-        header = requests.head(self.url)
-        self.file_size = int(int(header.headers["content-length"]) / 1024)
-        wx.CallAfter(pub.sendMessage,"show_gauge",data=self.file_size)
-        self.data = b""
         try:
+            header = requests.head(self.url)
+            self.file_size = int(int(header.headers["content-length"]) / 1024)
+            wx.CallAfter(pub.sendMessage,"show_gauge",data=self.file_size)
+            self.data = b""
             print(f'Starting download thread')
             req = requests.get(self.url, stream=True)
             total_size = 0
@@ -34,3 +34,4 @@ class DownloadThread(Thread):
             wx.CallAfter(pub.sendMessage, "downloaded", data=self.data)
         except Exception as e:
             print(f'Exception in downloading: {e}')
+            wx.CallAfter(pub.sendMessage, "download_error", data=f"{e}")
